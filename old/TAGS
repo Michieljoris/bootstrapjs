@@ -1,0 +1,24 @@
+
+bootstrapold.js,1240
+function l() {l3,15
+function pp() {pp13,275
+function printObject(o) {printObject22,531
+  var VERSION = '0.1';VERSION33,711
+  var DATE = '11/10/11';DATE34,734
+  var namespaceRootObject = window,namespaceRootObject36,807
+  var insertionLocation = document.getElementsByTagName(scriptInsertionLocation === 'head' ? 'head': 'body')[0],insertionLocation53,1496
+  if (!Array.prototype.forEach) {Array62,1794
+    Array.prototype.forEach = function(fun /*, thisp*/) Array.forEach63,1828
+    Array.prototype.map = function(fun /*, thisp*/) {Array.map79,2197
+  function getNamespaceObject(ns, path) {getNamespaceObject98,2645
+  function normalizePath(path) {normalizePath110,2906
+    function makeScriptElement(path) {loadScript.makeScriptElement120,3204
+    var script_element = makeScriptElement(path + ".js");script_element.onload126,3419
+    };script_element.onreadystatechange135,4013
+  function loadScript(path) {loadScript118,3148
+    var definer = {load.definer.callback148,4291
+  function load() {load147,4271
+  function scriptLoaded() {scriptLoaded169,4831
+  function resolveDeps(definer) {resolveDeps174,4944
+  function execute() {execute205,5828
+  function scriptsReady() {scriptsReady221,6255

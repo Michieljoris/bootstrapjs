@@ -1,0 +1,132 @@
+
+d2.js,0
+
+v2bootstrap.js,1320
+     function init(config) {init105,3621
+     function timedOut() {timedOut153,5638
+     var isArray = function (value) {return164,5963
+       return Object.prototype.toString.call(value) === "[object Array]";return.toString165,6001
+     var isArray = function (value) {isArray164,5963
+     function getNamespaceObject(ns, path, value) {getNamespaceObject175,6447
+     function dirifyPath(path) {dirifyPath194,6919
+	   script_element.onloadDone = false;script_element.onload223,7919
+	   };script_element.onreadystatechange227,8074
+     function loadResource(res, requirer) {loadResource199,7142
+     function define() { definers_called.push(definer); }define245,8663
+     function resourceLoaded(res, reqdefiner) {resourceLoaded248,8809
+     function resolveDeps(definer) {resolveDeps300,10904
+     function parseDependencyId(id) {parseDependencyId315,11350
+     function execute() {execute348,12386
+     function onFinished() {onFinished375,13333
+     var loaders = {loaders.text390,13796
+		   if (typeof XMLHttpRequest !== "undefined") {function.xhr411,14211
+								      new ActiveXObject(id);xhr423,14750
+		   x.open('GET', url, true);x.onreadystatechange434,15026
+		 function fetchText (url, callback, errback) {fetchText432,14957
+		 function error (ex) {error448,15345
+
+server.js,0
+
+javascript/doodads/d2.js,0
+
+javascript/doodads/d1.js,0
+
+javascript/doodads/d3.js,0
+
+javascript/plugins/css.js,177
+	function nameWithExt (name, defaultExt) {nameWithExt53,1418
+	function createLink (doc, href) {createLink58,1558
+	function fixProtocol (url, protocol) {fixProtocol66,1726
+
+javascript/myapp.js,0
+
+old/bootstrapold.js,1240
+function l() {l3,15
+function pp() {pp13,275
+function printObject(o) {printObject22,531
+  var VERSION = '0.1';VERSION33,711
+  var DATE = '11/10/11';DATE34,734
+  var namespaceRootObject = window,namespaceRootObject36,807
+  var insertionLocation = document.getElementsByTagName(scriptInsertionLocation === 'head' ? 'head': 'body')[0],insertionLocation53,1496
+  if (!Array.prototype.forEach) {Array62,1794
+    Array.prototype.forEach = function(fun /*, thisp*/) Array.forEach63,1828
+    Array.prototype.map = function(fun /*, thisp*/) {Array.map79,2197
+  function getNamespaceObject(ns, path) {getNamespaceObject98,2645
+  function normalizePath(path) {normalizePath110,2906
+    function makeScriptElement(path) {loadScript.makeScriptElement120,3204
+    var script_element = makeScriptElement(path + ".js");script_element.onload126,3419
+    };script_element.onreadystatechange135,4013
+  function loadScript(path) {loadScript118,3148
+    var definer = {load.definer.callback148,4291
+  function load() {load147,4271
+  function scriptLoaded() {scriptLoaded169,4831
+  function resolveDeps(definer) {resolveDeps174,4944
+  function execute() {execute205,5828
+  function scriptsReady() {scriptsReady221,6255
+
+temp/disentangletest.js,303
+var path_subsitutions = {path_subsitutions.p11,0
+  p1 : 'path/to/p1/',path_subsitutions.p22,26
+  var res = {getResource.res.status9,134
+function getResource(id) {getResource7,74
+  function assert(s,p, a,b) {run.assert48,1138
+  function test(a) {run.test55,1294
+function run () {run47,1120
+
+bootstrap.js,1634
+function timestamp() {timestamp2,14
+     var default_config = {default_config.globalHook50,2921
+	 globalHook : 'module',default_config.app54,3129
+	 app: 'myapp',default_config.kickoff58,3258
+	 kickoff : true,default_config.global64,3506
+	 global : window,default_config.loadpathPrefix69,3623
+	 loadpathPrefix : "javascript/",default_config.namespace73,3710
+	 namespace : 'app',default_config.scriptInsertionLocation83,4204
+	 scriptInsertionLocation : 'head',default_config.timeOut86,4248
+	 timeOut : 10, //not implementeddefault_config.verbose90,4356
+	 verbose : true,default_config.allDone93,4409
+     varglobal101,4554
+    function init(config) {init107,4786
+    if (!Array.prototype.forEach) {Array143,6227
+	Array.prototype.forEach = function(fun /*, thisp*/) Array.forEach144,6263
+	Array.prototype.map = function(fun /*, thisp*/) {Array.map161,6618
+    function getNamespaceObject(ns, path, value) {getNamespaceObject182,7144
+     function allDone() {allDone201,7562
+     function dirifyPath(path) {dirifyPath209,7782
+     function kickoff() {kickoff214,7919
+	 function makeScriptElement(path) {loadScript.makeScriptElement221,8157
+	     var script_element = makeScriptElement(path + ".js");script_element.onload229,8443
+	     };script_element.onreadystatechange233,8604
+     function loadScript(path) {loadScript219,8067
+    function scriptLoaded(script) {scriptLoaded248,9021
+	 var definer = {bootstrap.definer.callback260,9467
+     function bootstrap() {bootstrap258,9401
+     function resolveDeps(definer) {resolveDeps282,9964
+    function execute() {execute312,10727
+
+index.html,0
+
+utils.js,441
+function log() {log2,25
+function pp() {pp12,283
+if (!Array.prototype.forEach) {Array39,1039
+    Array.prototype.forEach = function(fun /*, thisp*/) Array.forEach40,1071
+    Array.prototype.map = function(fun /*, thisp*/) {Array.map57,1454
+var isArray = function (value) {return75,1890
+    return Object.prototype.toString.call(value) === "[object Array]";return.toString76,1923
+var isArray = function (value) {isArray75,1890
+
+plugins/css.js,177
+	function nameWithExt (name, defaultExt) {nameWithExt53,1418
+	function createLink (doc, href) {createLink58,1558
+	function fixProtocol (url, protocol) {fixProtocol66,1726
+
+plugins/text.js,0
+
+myapp.js,0
+
+d1.js,0
+
+testmoduleloader.html,0
+
+package.js,0
