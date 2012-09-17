@@ -3,9 +3,9 @@ console.log(timestamp() + ": ------browser executing myapp file");
 define(
   {
     name: 'foo',	    
-    load: ['somelib'], 
-   require: ['doodads/d1'],
-    factory: function(blatest) 
+    load: ['somelib|'], 
+    require: ['data!doodads/d2','doodads/d1'],
+    factory: function(d2data, d1) 
     {
       log(blatest,  'executing myapp callback');
       // var b = 0;

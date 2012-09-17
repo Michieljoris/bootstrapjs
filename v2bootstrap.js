@@ -1,40 +1,38 @@
 "use strict";
 // TODO
 //production/development mode, concat and minify async defer script injection
-// you can use objects to check if it is already there, not files
-
 //execute definers when their dependencies have been met
 //some resources/js/nonmodule files might have to be loaded in a certain order
-//amd compatibility  commonjs/requirejs format
 
 // cyclic dependancies!! Possible, but module that requires module that directly or indirectly requires the first module cannot use any public api of the first module. 
 
 //datastructures:
 // definer = {
+//   id : unique string made from: this.resource.url + this.tag
 //   tag: "string", 
 //   load: array of files,
 //   require: array of files, to inserted into factory
 //   factory; module code/dat
 
-//   id : unique string made from: this.resource.url + this.tag
 //   resource: resource this is defined in
-//   dependencies: list of dependencies which have to be loaded and its definers executed
+//   dependencies: list of dependencies whose resources have to be loaded and
+//                  its appropriate (tag) definer executed
 //                 before this definer's callback can be executed
+//   requirers: list of definers that need this definer
 // }
 
 // resource = {
 //   url: relative or absolute path
-//   definers: [definers]
+//   loader: "data, css or js"
 //   status: new, requested, loaded, callbacks_executed
-    
+//   blocks : boolean
+//   definers: definers defined in this resource    
 // }
 
 // dependency = {
 //   resource: ...
 //   tag: ...
-//   loader: "data, css or js"
-//   definer: definer that depends on this dependency
-//   fullfilled: boolean, has resourceLoaded been called if it is css or data,
+//   met: boolean, has resourceLoaded been called if it is css or data,
 //                        has the callback been executed if it is a definer, tagged or not
 // }
 
@@ -53,13 +51,16 @@
        
        //-----global namespace
        //All objects created by the callbacks are added to the object 
-       //global.namespace.package.pathToDefinitionFileFromLoadpathPrefixes. 
-       // So for instance if a module is defined in javascript/myapp/dir1/dir2/module1.js 
+       //global.globalNamespace.url
+       // So for instance if a module is defined in javascript/dir1/dir2/dir3/module1.js 
        // (relative to the html file that loaded bootstrap.js, this file)
        //,assuming global=window and namespace=module and pathPrefix=javascript
-       //and package.name=myapp and package.pathPrefix=myapp and then the object created will be:
-       //window.module.dir1.dir2.module1
+       //and path_substitution[myapp]='dir1/dir2' then the object created will be:
+       //window.module.myapp.dir3.module1, which can be required with myapp.dir3.module1
        globalNamespace : 'module',
+       
+       //----resource namespace
+       resourceNamespace: 'resources',
        
        //-----global loadpathPrefix
        //load all files relative to this path
@@ -67,23 +68,20 @@
        
        //-----------path_substitutions 
        //a way to map namespaces to directories. This way you can refer to modules defined in 
-       //separate rootfolders by prefixing the object name with the package.name 
-       //giving separate namespaces to different dir trees, the first package defined is the default
+       //separate rootfolders by prefixing the object name with its subsitution
        path_substitutions: {
 	 myapp : 'path/to/package.js'
        },
        
        //-----mainjs     
-       //First javascript file to load. This filename gets prefixed with pathPrefix
-       //and and the pathprefix of the default package
+       //First javascript file to load.
        mainjs: 'myapp',
-       
 
        //-----head or body
        scriptInsertionLocation : 'head',
        
        //-----timeOut 
-       //in seconds, for script loading
+       //in seconds  
        timeOut : 5,
        
        //----verbose
@@ -108,13 +106,13 @@
      path_subsitutions,
      
      //internal vars
-     resources, definers, definers_called, 
-     requests_pending, 
+     resources, definers, dependencies, 
+     definers_called, requests_pending, 
      
      
      l;
      
-     function init(config) {
+    function init(config) {
        if (!config) config = default_config;
        
        globalHook = config.globalHook || default_config.globalHook,
@@ -144,7 +142,7 @@
        }
        else {
 	 timestamp("Loading first javascript file: " + mainjs + ".js");
-	 loadResource(parseDependencyId(mainjs),null);
+	 requestResource(parseDependencyId(mainjs),null);
        }
        //make sure every path ends with a slash 
        for (p in path_substitutions) 
@@ -152,8 +150,7 @@
 	   path_substitutions[p] += '/'; 
        if (pathPrefix[pathPrefix.length-1] !== '/') pathPrefix += '/';
        setTimeout(timedOut, timeOut*1000);
-     }
-     ;
+     };
      
      function timedOut() {
        for (e in requestedUrls)
@@ -197,16 +194,21 @@
      }
      
      function dirifyPath(path) {
-       if (path) path = path.replace(/\./g, '/');
+      if (path) path = path.replace(/\./g, '/');
        return path; //.replace(/-/g, '/');
      }
-     //This inserts a script element into the dom, which causes an async load of the file
-     function loadResource(res, requirer) {
+  
+     //This inserts a script or css element into the dom, which causes an 
+     //async load of the file, or does an xhr request for a file.  For both
+     //resourceLoaded is given a callback.
+     function requestResource(res, requirer) {
        if (res.url) {
 	 if (res.loader && res.loader !== 'js') { 
 	   log("loading non js resource ", res);
 	   // 'load': function (resourceId, require, callback, config) {
-	   if (res.loader !== 'css') res.loader = 'text';
+	   if (res.loader !== 'css') res.loader = 'data';
+	   requests_pending += 1;
+	   res.status = 'requested';
 	   loaders[res.loader].load(
 	     res.url, 
 	     { toUrl: function (url) { return url; }},
@@ -218,11 +220,8 @@
 	       log(result);  },
 	     {/*config*/}
 	   );
-	   
-
 	 }
-	 else {
-	   requests_pending += 1;
+	 else { //insert javascript
 	   var script_element = document.createElement('script');
 	   script_element.src = res.url;
 	   script_element.onloadDone = false;
@@ -237,6 +236,8 @@
 	       resourceLoaded(res, requirer);
 	     }
 	   };
+	   requests_pending += 1;
+	   res.status = 'requested';
 	   insertionLocation.appendChild(script_element);
 	   l(timestamp() + ': inserting script tag for: '+ res.url);
 	 }
@@ -244,19 +245,24 @@
        else throw "Cannot load empty url. Have you defined app?";
      }
 
-
-     //------------------main functions   
      //the only global to leak out of this closure, under a name set in the configuration 
-     function define() { definers_called.push(definer); }
+     //these functions get executed right after a js file has been loaded by the browser
+     //we collect the arguments to these calls here.
+     function define(definer) { definers_called.push(definer); }
      
      //called immediately by the browser after script is loaded and then executed
      function resourceLoaded(res, reqdefiner) {
        timestamp( "finished loading: " + res.url);
        requests_pending -= 1;
-       definers_called.forEach(
+       res.status = 'loaded';
+       res.definers = definers_called;
+       definers_called=[]; //reset for the next script to come in
+       
+       res.definers.forEach(
 	 function(definer) {
 	   definer.id = res.url + definer.tag; 
 	   definer.resource = res;
+	   definer.requirers = [];
 	   if (definers[definer.id]) timestamp("Warning: redefining " + definer.id); 
 	   definers[definer.id]=definer;
 	   // put this definer before its reqdefiner
@@ -272,76 +278,101 @@
 	     				      });
 	     	return exOrder;
 	      })();
-	   timestamp('new definer added to defined: ' + definer.id + ' ' + definer.exOrder);
 	   resolveDeps(definer);
+	   timestamp('new definer added to defined: ' + definer.id + ' ' + definer.exOrder);
 	 } );
-       res.definers = definers_called;
-       definers_called=[]; //reset for the next script to come in
-       if (requests_pending > 0) return; 
-       log("checkDeps");
-       
-       Object.keys(resources).forEach(
-	 function (res) {
-	   console.log(res.url," is needed in ", 
-		       res.checkDeps.map(function(def) { return def.id;}));
-	   res.checkDeps.forEach(
-	     function (def) {
-	       if (definers[def] && definers[def].exOrder >  def.exOrder) 
-		 log("Warning! Cyclic dependency: The objects imported from " + d +
-		     " will be undefined in " + r.url);
-	     });
-	 });
-       execute();
-       allDone();
-     } 
+       //as long as there are still requests pending don't finalize
+       if (requests_pending === 0) finalize(); 
+     }
      
      function resolveDeps(definer) {
        timestamp('resolving deps for ' + definer.id, definer.required);
-       definer.load.forEach()
-       definer.required.forEach(
-	 function(depId) { 
-	   var res = parseDependencyId(depId);
-	   if (!resources[res.url]) {
-	     resources[res.url] = res;
-	     res.checkDeps = [];
-	     loadResource(res, definer);
-	   }
-	   else timestamp(res.url + ' has already been requested');
-	   res.checkdeps.push(definer);
-	 });
+       var dep;
+       definer.dependencies = [];
+       function getDep(depId) {
+	 dep = parseDependencyId(depId);
+	 definer.dependencies.push(dep);
+	 if (dep.resource.status === 'new')  
+	   requestResource(dep.resource, definer);
+	 else timestamp(res.url + ' has already been requested');
+       };
+       definer.load.forEach(processDep);
+       definer.require.forEach(processDep);
      } 
      
      function parseDependencyId(id) {
-       var res = {};
+       var blocks = false, url, loader,
+       tag = "", resource;
+       
        var isUri = false;
-       var lastHash = id .lastIndexOf('#');
-       if (lastHash >-1) id = id.substring(0, lastHash);
+       
+       if (id[id.length-1] === '|') {  blocks  = true;
+				       id = id.substring(0, id.length-1);  }
+       var lastHash = id.lastIndexOf('#');
+       if (lastHash > -1) { tag = id.substring(lastHash+1);
+			    id = id.substring(0, lastHash);  }
        var splitId = id.split("!");
        if (splitId.length > 1 && 
 	   (splitId[0] === 'js' || splitId[0] === 'css' || splitId[0] === 'data')) {  
-	 res.loader = splitId[0];
-	 id = id.substring(id.indexOf('!') + 1);
-       }
+	 loader = splitId[0];
+	 id = id.substring(id.indexOf('!') + 1);  }
        else { var lastDot = id.lastIndexOf('.');
 	      var lastSlash =  id.lastIndexOf('/');
-	      if (lastDot>lastSlash) res.loader = id.substring(lastDot+1);
-	    }
+	      if (lastDot>lastSlash) loader = id.substring(lastDot+1);  }
        if (id.indexOf(':') > -1) isUri = true;
        var firstSlash = id.indexOf('/');
        if (firstSlash > -1) {
 	 var p = path_subsitutions[id.substring(0,firstSlash)];
 	 if (p) id = p + id.substring(firstSlash+1);
        }
-       res.url = isUri ? id : pathPrefix + id;
-       if (!res.loader)  {
-	 if (!isUri) { res.loader = 'js';
-		       res.url += '.js'; 
-		     }
-	 else res.loader = 'data';
-       }
-       return res;
+       url = isUri ? id : pathPrefix + id;
+       if (!loader)  {
+	 if (!isUri) { loader = 'js';
+		       url += '.js';  }
+	 else loader = 'data';  }
+       if (!resources[loader + url]) { resource = {
+					 url: url,
+					 loader: loader,
+					 status: 'new',
+					 blocks: blocks };
+				       resources[loader + url] = resource; }
+       else { resource = resources[loader + url];
+	      resource.blocks = blocks; }
+       return {  resource: resource,
+		 tag: tag,
+		 met: false  };
      } 
-
+     
+    function finalize() {
+      log("Finished loading, finalizing:");
+      Object.keys(resources).forEach(
+	function (res) {
+	  res.definers.forEach( //array
+	    function (resdef) {
+	      resdef.dependencies.forEach( //array
+		function (dep) {
+		  dep.resource.definers.forEach(  //array
+		    function (def) {
+		      if (def.tag === dep.tag)
+			def.requirers.push(resdef);
+		    }); 
+		});
+	    });
+	});
+      Object.keys(definers).forEach(
+	function (def) {
+	  console.log(def.resource.url," is needed in ", 
+		      def.requirers.map(function(req) { return req.id;}));
+	  def.requirers.forEach( //array
+	    function (req) {
+	      if ( req.exOrder >  def.exOrder) 
+		log("Warning! Cyclic dependency: The objects imported from " + d +
+		    " will be undefined in " + r.url);
+	    });
+	});
+      execute();
+      allDone();
+    } 
      
      
      function execute() {
@@ -402,7 +433,7 @@
 	* 
 	*/
 
-       text : (function () {
+       data : (function () {
 
 		 var progIds = ['Msxml2.XMLHTTP', 'Microsoft.XMLHTTP', 'Msxml2.XMLHTTP.4.0'];
 
