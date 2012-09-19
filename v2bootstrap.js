@@ -1,12 +1,11 @@
 "use strict";
 // TODO
-//production/development mode, concat and minify
 //execute definers when their dependencies have been met
 
 
 //Notes:
 //1. To load non-module files in a certain order, concatenate them into one js file, insert them directly
-// in the html file with script source statements, or require or load them in a module marking them with
+// in the html file with script source statements, or inject or load them in a module marking them with
 // a | after the url to indicate that they should block till they are loaded (and executed!) 
 
 //2. Cyclic dependancies!! Possible, but a module that requires another module that directly or 
@@ -14,12 +13,20 @@
 // of the callback, since the callback of the first module has not been called yet at that moment. 
 // However after this has happened (the callback of the first module) the second module can use it again.
 
+//3. To concatenate all the files together you would have to insert statements between the concatenated files,
+//such as: setfolderpath(pathToFolderFileUsedToBeIn), so that when the defines get executed bootstrapjs knows
+//in what namespace to put the defined factories, ofcourse all the load directives would become superfluous 
+//because they don't have to be loaded anymore by bootstrap. The inject directive becomes just an instruction 
+//what objects to insert, not what files to load anymore. You can concatenate them in any order, bootstrap would 
+//still control the order of the execution of the callbacks, though you might might want to put the non bootstrap ffiles first. You could set it up so that just before bootstrap executes the callbacks, it would check whether all
+//the dependency objects are there, and if not it would again try to download them.
+
 //datastructures:
 // definer = {
 //   id : unique string made from: this.resource.url + this.tag
 //   tag: "string", 
 //   load: array of files,
-//   require: array of files, to inserted into factory
+//   inject: array of files, to inserted into factory
 //   factory; module code/dat
 
 //   resource: resource this is defined in
@@ -63,7 +70,7 @@
        // (relative to the html file that loaded bootstrap.js, this file)
        //,assuming global=window and namespace=module and pathPrefix=javascript
        //and path_substitution[myapp]='dir1/dir2' then the object created will be:
-       //window.module.myapp.dir3.module1, which can be required with myapp.dir3.module1
+       //window.module.myapp.dir3.module1, which can be injected with myapp.dir3.module1
        //if this variable is not defined at all objects assigned to an internal namespace
        globalNamespace : 'module',
        
@@ -313,7 +320,7 @@
 	   definer.resource = res;
 	   if (!definer.tag) definer.tag = "";
 	   if (!definer.load) definer.load = [];
-	   if (!definer.require) definer.require = [];
+	   if (!definer.inject) definer.inject = [];
 	   // definer.id = definer.tag ? res.url + "#" + definer.tag : res.url; 
 	   definer.id = res.url + "#" + definer.tag;
 	   definer.requirers = [];
@@ -344,9 +351,9 @@
        if (requests_pending === 0) finalize(); 
      }
      
-     //make more requests for resources, depending on the modules load and require arrays
+     //make more requests for resources, depending on the modules load and inject arrays
      function resolveDeps(definer) {
-       c.info('resolving deps for ' + definer.id, definer.load, definer.require);
+       c.info('resolving deps for ' + definer.id, definer.load, definer.inject);
        definer.dependencies = [];
        function processDep(depId) {
 	 var dep = parseDependencyId(depId);
@@ -360,7 +367,7 @@
 	 else c.info(dep.resource.url + ' is requested one more!!');
        };
        definer.load.forEach(processDep);
-       definer.require.forEach(processDep);
+       definer.inject.forEach(processDep);
      } 
      
      //pry dependency id apart  

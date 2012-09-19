@@ -4,8 +4,8 @@ define(
   {
     tag: 'foo',	    
     // load: ['somelib|'], 
-    // require: ['data!http://code.jquery.com/jquery-1.8.1.min.js'],
-    require: ['doodads/d1|', 'doodads/d2'],
+    // inject: ['data!http://code.jquery.com/jquery-1.8.1.min.js'],
+    inject: ['doodads/d1|', 'doodads/d2'],
     factory: function(d1, d2)  {
       // console.log('d1 in myapp is: ', d1.name);
       // console.log('d2 in myapp is: ', d2.name);
