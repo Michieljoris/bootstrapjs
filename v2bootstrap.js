@@ -1,4 +1,3 @@
-
 "use strict";
 // TODO
 //production/development mode, concat and minify
@@ -10,7 +9,7 @@
 // in the html file with script source statements, or require or load them in a module marking them with
 // a | after the url to indicate that they should block till they are loaded (and executed!) 
 
-// 2. Cyclic dependancies!! Possible, but a module that requires another module that directly or 
+//2. Cyclic dependancies!! Possible, but a module that requires another module that directly or 
 // indirectly requires the first module cannot use any public api of the first module upon invocation
 // of the callback, since the callback of the first module has not been called yet at that moment. 
 // However after this has happened (the callback of the first module) the second module can use it again.
@@ -45,15 +44,12 @@
 //   met: boolean, has resourceLoaded been called if it is css or data,
 //                        has the callback been executed if it is a definer, tagged or not
 // }
-// function exe(f) {
-//   console.log("executing callbacks");
-//   f.call();
-// }
+
 //Bootstrap
 (function(global) 
  {   var 
-     VERSION = '0.2',
-     DATE = '11/9/12',
+     VERSION = '0.3',
+     DATE = '19/9/12',
      default_config = {
        //-----globalHook
        //name of the global function that modularizes a file by defining other files to load and taking a callback that
@@ -89,7 +85,7 @@
        //----execute_on_dependencies_met 
        //whether to execute callbacks as soon as their dependencies are met, or to 
        //wait till all files are loaded
-       executeOnDependenciesMet: true,
+       executeOnDependenciesMet: true, //not implemented
 
        //-----head or body
        scriptInsertionLocation : 'head',
@@ -133,35 +129,49 @@
      path_substitutions, executeNow, execute,
      
      //internal vars
-     resources, definers, dependencies, 
+     resources, definers,
      definers_called, requests_pending, 
-     internalNamespace, blocking, reqstack,
+     blocking, reqstack,
      
      c; //log variable, like console, but with verbosity level control
      
      function init(config) {
+       //make sure all config vars have at least some default value
        if (!config) config = default_config;
        
-       globalHook = config.globalHook || default_config.globalHook,
-       globalNamespace = config.globalNamespace || default_config.globalNamespace,
-       pathPrefix = config.pathPrefix || default_config.pathPrefix,
-       mainjs = config.mainjs || default_config.mainjs,
-       scriptInsertionLocation = config.scriptInsertionLocation || default_config.scriptInsertionLocation,
-       timeOut = config.timeOut || default_config.timeOut,
-       allDone = config.allDone || default_config.allDone,
-       verbose = config.verbose == undefined ? default_config.verbose : config.verbose, 
-       insertionLocation = document.getElementsByTagName(scriptInsertionLocation === 'head' ? 'head': 'body')[0],
-       path_substitutions = config.path_substitutions || default_config.path_substitutions,
+       globalHook = config.globalHook || default_config.globalHook;
+       if (global[globalHook]) c.warn("Warning: globalHook '" + globalHook + "' already exists");
+       global[globalHook]= define;
+       
+       globalNamespace = config.globalNamespace || default_config.globalNamespace;
+       if (!globalNamespace) globalNamespace = {};
+       
+       pathPrefix = config.pathPrefix || default_config.pathPrefix;
+       mainjs = config.mainjs || default_config.mainjs;
+       scriptInsertionLocation = config.scriptInsertionLocation || default_config.scriptInsertionLocation;
+       timeOut = config.timeOut || default_config.timeOut;
+       allDone = config.allDone || default_config.allDone;
+       verbose = config.verbose == undefined ? default_config.verbose : config.verbose;
+       insertionLocation = document.getElementsByTagName(scriptInsertionLocation === 'head' ? 'head': 'body')[0];
+       path_substitutions = config.path_substitutions || default_config.path_substitutions;
        executeNow = config.executeOnDependenciesMet || default_config.executeOnDependenciesMet; 
-       execute = config.execute || default_config.execute,
+       execute = config.execute || default_config.execute;
        
-       resources = {},
-       definers = {},
-       definers_called = [],
+       //make sure every path ends with a slash 
+       for (var p in path_substitutions) 
+	 if (path_substitutions[p][path_substitutions[p].length-1] !== '/')
+	   path_substitutions[p] += '/'; 
+       if (pathPrefix[pathPrefix.length-1] !== '/') pathPrefix += '/';
+       
+       //initialize internal vars 
+       resources = {};
+       definers = {};
+       definers_called = [];
        requests_pending = 0;
-       internalNamespace = {};
-       if (!globalNamespace) globalNamespace = internalNamespace;
+       blocking = false;
+       reqstack = [];
        
+       //custom console 
        c = {};
        var emptyFun = function () {};
        c.error = c.warn = c.info = c.debug = function() {};
@@ -176,10 +186,7 @@
        default: c.error("Unknown verbose level");
        }
        
-       if (global[globalHook]) c.warn("Warning: globalHook '" + globalHook + "' already exists");
-
-       global[globalHook]= define;
-       
+       //start off bootstrap
        if (initHook && !global[globalHook][initHook] ) {
 	 global[globalHook][initHook] = init;
 	 c.info("Finished the bootstrap script, start loading the scripts with " + 
@@ -189,16 +196,12 @@
 	 c.info("Loading first javascript file: " + mainjs + ".js");
 	 requestResource({ resource: parseDependencyId(mainjs).resource, requiere:null });
        }
-       //make sure every path ends with a slash 
-       for (var p in path_substitutions) 
-	 if (path_substitutions[p][path_substitutions[p].length-1] !== '/')
-	   path_substitutions[p] += '/'; 
-       if (pathPrefix[pathPrefix.length-1] !== '/') pathPrefix += '/';
+       //after timeOut seconds timedOut get called which checks whether all scripts and resources have been loaded
+       //and gives an error messages if they are not.
        setTimeout(timedOut, timeOut*1000);
-       blocking = false;
-       reqstack = [];
      };
      
+     //called after timeOut seconds. Checks if all requested resources have actually been loaded.
      function timedOut() {
        var noresponse = [];
        for (var r in resources)
@@ -210,26 +213,12 @@
 	 noresponse.forEach(function(r) {
 			      c.error("  " + r.url);
 			    });
-	 // throw "Error: bootstrap timed out, not all resources requested " + 
-	 //   "have been returned within the timeOut time frame:";
        } 
      }
      
-     //----------------helper functions
-     //testing for array
-     var isArray = function (value) {
-       return Object.prototype.toString.call(value) === "[object Array]";
-       // return value &&
-       //     typeof value === 'object' &&
-       //     typeof value.length === 'number' &&
-       //     typeof value.splice === 'function' &&
-       //     !(value.propertyIsEnumerable('length'));
-     };
-     
      //when given a path of a/b/c and a ns of base, object base.a.b.c is returned, creating
-     //the objects that don't exist yet
+     //the objects that don't exist yet, and assigning value to the end of the path (c)
      function getNamespaceObject(ns, path, value) {
-       // c.info(ns, path, value);
        if (path) {
 	 var parts = path.split('/');
 	 for (var i = 0; i < parts.length; i++) {
@@ -243,68 +232,64 @@
 	   }
 	 }
        };
-       // return value;
        return ns;
      }
      
      //This inserts a script or css element into the dom, which causes an 
      //async load of the file, or does an xhr request for a file.  For both
-     //resourceLoaded is given a callback.
+     //resourceLoaded is given as callback.
      function requestResource(request) {
        var res = request.resource;
        var requirer = request.requirer;
-       if (res.url) {
-	 if (res.blocks) blocking = true;
-	 if (res.loader && res.loader !== 'js') { 
-	   c.info("loading non js resource ", res.url);
-	   if (res.loader !== 'css') res.loader = 'data';
-	   requests_pending += 1;
-	   res.status = 'requested';
-	   loaders[res.loader].load(
-	     res.url, 
-	     { toUrl: function (url) { return url; }},
-	     function (result) { 
-	       // c.debug(result);
-	       if (res.loader === 'data')  {
-		 var namespaceObject = getNamespaceObject(global, globalNamespace);
-		 // c.debug(global, globalNamespace,namespaceObject);
-		 c.debug(res);
-		 if (res.isAbs) {
-		   namespaceObject[res.url] = result;
-		 }
-		 else getNamespaceObject(namespaceObject, res.namespace, result);
+       if (res.blocks) blocking = true;
+       //xhr and css tag insertion 
+       if (res.loader && res.loader !== 'js') { 
+	 c.info("loading non js resource ", res.url);
+	 if (res.loader !== 'css') res.loader = 'data';
+	 requests_pending += 1;
+	 res.status = 'requested';
+	 //call one of the loaders defined at the bottom of this file
+	 loaders[res.loader].load(
+	   res.url, 
+	   { toUrl: function (url) { return url; }},
+	   //callback for xhr and css
+	   function (result) { 
+	     //we only care about the data callback
+	     if (res.loader === 'data')  {
+	       //pop the data in the namespace tree 
+	       var namespaceObject = getNamespaceObject(global, globalNamespace);
+	       if (res.isAbs) {
+		 namespaceObject[res.url] = result;
 	       }
-	       resourceLoaded(res, requirer);
-	       // c.info(result);  
-	     },
-	     {/*config*/}
-	   );
-	 }
-	 else { //insert javascript
-	   var script_element = document.createElement('script');
-	   script_element.src = res.url;
-	   script_element.onloadDone = false;
-	   script_element.defer = true;
-	   // script_element.async = true;
-	   
-	   script_element.onload = function() {
-	     script_element.onloadDone=true;
-	     resourceLoaded(res, requirer);
-	   };
-	   // IE 6 & 7
-	   script_element.onreadystatechange = function() {
-	     if (script_element.readyState == 'loaded' && !script_element.onloadDone) {
-	       script_element.onloadDone = true;
-	       resourceLoaded(res, requirer);
+	       else getNamespaceObject(namespaceObject, res.namespace, result);
 	     }
-	   };
-	   requests_pending += 1;
-	   res.status = 'requested';
-	   insertionLocation.appendChild(script_element);
-	   c.info( 'inserting script tag for: '+ res.url);
-	 }
-       } 
-       else throw "Cannot load empty url. Have you defined app?";
+	     resourceLoaded(res, requirer);
+	   },
+	   {/*config*/}
+	 );
+       }
+       //insert javascript tag
+       else { 
+	 var script_element = document.createElement('script');
+	 script_element.src = res.url;
+	 script_element.onloadDone = false;
+	 script_element.defer = true;
+	 script_element.onload = function() {
+	   script_element.onloadDone=true;
+	   resourceLoaded(res, requirer);
+	 };
+	 // // IE 6 & 7
+	 // script_element.onreadystatechange = function() {
+	 //   if (script_element.readyState == 'loaded' && !script_element.onloadDone) {
+	 //     script_element.onloadDone = true;
+	 //     resourceLoaded(res, requirer);
+	 //   }
+	 // };
+	 requests_pending += 1;
+	 res.status = 'requested';
+	 insertionLocation.appendChild(script_element);
+	 c.info( 'Inserting script tag for: '+ res.url);
+       }
      }
 
      //the only global to leak out of this closure, under a name set in the configuration 
@@ -314,13 +299,15 @@
      
      //called immediately by the browser after script is loaded and then executed
      function resourceLoaded(res, reqdefiner) {
+       //bookkeeping
        if (blocking) blocking = false;
        c.info( "finished loading: " + res.url);
        requests_pending -= 1;
        res.status = 'loaded';
        res.definers = definers_called;
        definers_called=[]; //reset for the next script to come in
-       
+       //add definers called from the script just loaded to the definers object, under
+       //the name definer.res.url#definer.tag
        res.definers.forEach(
 	 function(definer) {
 	   definer.resource = res;
@@ -331,7 +318,6 @@
 	   definer.id = res.url + "#" + definer.tag;
 	   definer.requirers = [];
 	   if (definers[definer.id]) c.info("Warning: redefining " + definer.id); 
-	   definers[definer.id]=definer;
 	   // put this definer before its reqdefiner
 	   // adust the exOrdering of all definers with a exOrdering higher
 	   // or equal to the reqdefinerexOrder by 1 upwards
@@ -345,22 +331,25 @@
 	     				      });
 	     	return exOrder;
 	      })();
+	   //one more for the collection
+	   definers[definer.id]=definer;
+	   //and see what else this definer is going to need...
 	   resolveDeps(definer);
-	   c.info('new definer added to defined: ' + definer.id + ' ' + definer.exOrder);
+	   c.info('New definer added to definers: ' + definer.id + ' ' + definer.exOrder);
 	 } );
-       
+       //carry out any pending requests that might have stacked up while a resource was purposefully blocking
        while (reqstack.length > 0 && !blocking)
 	 requestResource(reqstack.pop());
        //as long as there are still requests pending don't finalize
        if (requests_pending === 0) finalize(); 
      }
      
+     //make more requests for resources, depending on the modules load and require arrays
      function resolveDeps(definer) {
        c.info('resolving deps for ' + definer.id, definer.load, definer.require);
-       var dep;
        definer.dependencies = [];
        function processDep(depId) {
-	 dep = parseDependencyId(depId);
+	 var dep = parseDependencyId(depId);
 	 definer.dependencies.push(dep);
 	 if (dep.resource.status === 'new')   {
 	   var request = { resource:dep.resource, requirer: definer };
@@ -368,12 +357,13 @@
 	   else requestResource(request);
 	 }
 	   
-	 else c.info(dep.resource.url + ' has already been requested');
+	 else c.info(dep.resource.url + ' is requested one more!!');
        };
        definer.load.forEach(processDep);
        definer.require.forEach(processDep);
      } 
      
+     //pry dependency id apart  
      function parseDependencyId(id) {
        if (!id) c.warn("Empty dependency...");
        var blocks = false, url, loader,
@@ -430,14 +420,16 @@
 					     resources[loader + "!" + url] = resource; }
        else { resource = resources[loader + "!" + url];
 	      resource.blocks = blocks; }
-       //return a dependy
+       //return a dependency
        return {  resource: resource,
 		 tag: tag,
 		 met: false  };
      } 
      
+     //make the apropriate connections, check for circular dependencies and execute the callbacks
      function finalize() {
        c.info("Finished loading, finalizing:");
+       //connect it all up
        Object.keys(resources).forEach(
 	 function (res) {
 	   resources[res].definers.forEach( //array
@@ -452,8 +444,9 @@
 		 });
 	     });
 	 });
-       c.dir(definers);
-       c.dir(resources);
+       // c.dir(definers);
+       // c.dir(resources);
+       //check for dependencies
        Object.keys(definers).forEach(
 	 function (def) {
 	   def = definers[def];
@@ -468,10 +461,11 @@
 			" might be undefined in " + req.id);
 	     });
 	 });
+       //execute the callbacks
        execute(execute_callbacks);
      } 
      
-
+     //default callback for execute, it just passes on the call
      function native_execute(f) {
        f.call();
      }
@@ -511,6 +505,7 @@
        allDone();
      }
      
+     //superfluous.., just some printing out of debug data 
      function onFinished() {
        c.debug("file\treliantOn\trequiredby\texOrdering"); 
        var sortedDefs = [];
