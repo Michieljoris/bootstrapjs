@@ -4,9 +4,9 @@ define(
     // name: 'foo',	    
     // load: ['https://ajax.googleapis.com/ajax/libs/jquery/1.8.1/jquery.min.js'], 
     // require: ['doodads/d2'],
-    factory: function(blatest) 
+    factory: function() 
     {  console.log(this, "executing d1 callback");
-       // console.log(d2, "d2 in d1");
+       // console.log(d2.name, "d2 in d1");
        // // console.log(d3, "d3 in d1");
        // log(d2.name);
        // self.hello = 'hello';

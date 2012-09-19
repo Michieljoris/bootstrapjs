@@ -1,10 +1,19 @@
+
 "use strict";
 // TODO
 //production/development mode, concat and minify
 //execute definers when their dependencies have been met
-//some resources/js/nonmodule files might have to be loaded in a certain order. defer?, implement blocking..
 
-// cyclic dependancies!! Possible, but module that requires module that directly or indirectly requires the first module cannot use any public api of the first module. 
+
+//Notes:
+//1. To load non-module files in a certain order, concatenate them into one js file, insert them directly
+// in the html file with script source statements, or require or load them in a module marking them with
+// a | after the url to indicate that they should block till they are loaded (and executed!) 
+
+// 2. Cyclic dependancies!! Possible, but a module that requires another module that directly or 
+// indirectly requires the first module cannot use any public api of the first module upon invocation
+// of the callback, since the callback of the first module has not been called yet at that moment. 
+// However after this has happened (the callback of the first module) the second module can use it again.
 
 //datastructures:
 // definer = {
@@ -36,7 +45,10 @@
 //   met: boolean, has resourceLoaded been called if it is css or data,
 //                        has the callback been executed if it is a definer, tagged or not
 // }
-
+// function exe(f) {
+//   console.log("executing callbacks");
+//   f.call();
+// }
 //Bootstrap
 (function(global) 
  {   var 
@@ -90,10 +102,21 @@
        //none, error, warn, info, debug 
        verbose : "debug",
        
+       //--execute
+       // callback that gets as an argument a function that executes all the callbacks.
+      // useful to implement waiting for domready event for instance:
+       // execute: function myExecute(f) {
+       //   // Check for browser support of event handling capability
+       //   if (window.addEventListener)
+       //     window.addEventListener("load", f, false);
+       //   else if (window.attachEvent) window.attachEvent("onload", f);
+       //   else window.onload = f;
+       // },
+       execute: native_execute,
+        
        //-----allDone 
        // Gets called when all files are loaded and all callbacks executed
        allDone : onFinished
-       
 
      },
      
@@ -107,12 +130,12 @@
      //config vars    
      globalNamespace, pathPrefix ,mainjs, scriptInsertionLocation, 
      globalHook, timeOut, verbose, insertionLocation, allDone,
-     path_substitutions, executeNow,
+     path_substitutions, executeNow, execute,
      
      //internal vars
      resources, definers, dependencies, 
      definers_called, requests_pending, 
-     internalNamespace,
+     internalNamespace, blocking, stack,
      
      c; //log variable, like console, but with verbosity level control
      
@@ -130,6 +153,8 @@
        insertionLocation = document.getElementsByTagName(scriptInsertionLocation === 'head' ? 'head': 'body')[0],
        path_substitutions = config.path_substitutions || default_config.path_substitutions,
        executeNow = config.executeOnDependenciesMet || default_config.executeOnDependenciesMet; 
+       execute = config.execute || default_config.execute,
+       
        resources = {},
        definers = {},
        definers_called = [],
@@ -162,7 +187,7 @@
        }
        else {
 	 c.info("Loading first javascript file: " + mainjs + ".js");
-	 requestResource(parseDependencyId(mainjs).resource,null);
+	 requestResource({ resource: parseDependencyId(mainjs).resource, requiere:null });
        }
        //make sure every path ends with a slash 
        for (var p in path_substitutions) 
@@ -170,6 +195,8 @@
 	   path_substitutions[p] += '/'; 
        if (pathPrefix[pathPrefix.length-1] !== '/') pathPrefix += '/';
        setTimeout(timedOut, timeOut*1000);
+       blocking = false;
+       stack = [];
      };
      
      function timedOut() {
@@ -223,8 +250,15 @@
      //This inserts a script or css element into the dom, which causes an 
      //async load of the file, or does an xhr request for a file.  For both
      //resourceLoaded is given a callback.
-     function requestResource(res, requirer) {
+     function requestResource(request) {
+       var res = request.resource;
+       var requirer = request.requirer;
+       if (blocking) {
+	 stack.push(request);
+	 return;
+       }
        if (res.url) {
+	 if (res.blocks) blocking = true;
 	 if (res.loader && res.loader !== 'js') { 
 	   c.info("loading non js resource ", res.url);
 	   if (res.loader !== 'css') res.loader = 'data';
@@ -254,6 +288,9 @@
 	   var script_element = document.createElement('script');
 	   script_element.src = res.url;
 	   script_element.onloadDone = false;
+	   script_element.defer = true;
+	   // script_element.async = true;
+	   
 	   script_element.onload = function() {
 	     script_element.onloadDone=true;
 	     resourceLoaded(res, requirer);
@@ -281,6 +318,11 @@
      
      //called immediately by the browser after script is loaded and then executed
      function resourceLoaded(res, reqdefiner) {
+       if (blocking) {
+	 blocking = false;
+	 while (stack.length > 0 && !blocking)
+	   requestResource(stack.pop());
+       }
        c.info( "finished loading: " + res.url);
        requests_pending -= 1;
        res.status = 'loaded';
@@ -325,9 +367,11 @@
        function processDep(depId) {
 	 dep = parseDependencyId(depId);
 	 definer.dependencies.push(dep);
-	 if (dep.resource.status === 'new')  
-	   requestResource(dep.resource, definer);
-	 else c.info(res.url + ' has already been requested');
+	 if (dep.resource.status === 'new')   {
+	  requestResource({ resource:dep.resource, requirer: definer });
+	 }
+	   
+	 else c.info(dep.resource.url + ' has already been requested');
        };
        definer.load.forEach(processDep);
        definer.require.forEach(processDep);
@@ -412,28 +456,32 @@
 	     });
 	 });
        c.dir(definers);
-       // c.dir(resources);
+       c.dir(resources);
        Object.keys(definers).forEach(
 	 function (def) {
 	   def = definers[def];
-	   c.debug('def=' , def);
+	   // c.debug('def=' , def);
 	   c.info(def.resource.url," is needed in ", 
 		  def.requirers.map(function(req) { return req.id;}));
 	   def.requirers.forEach( //array
 	     function (req) {
-	       c.debug('req=', req);
+	       // c.debug('req=', req);
 	       if ( req.exOrder <  def.exOrder) 
 		 c.warn("Warning! Cyclic dependency: The objects imported from " + def.id +
-			" will be undefined in " + req.id);
+			" might be undefined in " + req.id);
 	     });
 	 });
-       execute();
-       //by default this calls onFinished, but can be reassigned in config
-       allDone();
+       execute(execute_callbacks);
      } 
      
-     
-     function execute() {
+
+     function native_execute(f) {
+       f.call();
+     }
+    
+     //all the callbacks gathered during the loading phase get executed now in the right order,
+     //so that their dependencies are all met
+     function execute_callbacks() {
        c.info('Executing callbacks:');
        var sortedDefs = [];
        //base object to assign our factories to
@@ -450,9 +498,10 @@
 	   if (typeof def.factory === 'function') {
 	     var self = getNamespaceObject(namespaceObject, def.resource.namespace + def.tag);
 	     var depobjs = []; 
+	     //all these dependencies should exist in the namespace..
 	     def.dependencies.forEach(function (dep) {
 					var path = dep.resource.namespace + dep.tag;
-					c.debug('path: ', path);
+					// c.debug('path: ', path);
 					if (depobjs.push(getNamespaceObject(namespaceObject, path)) == undefined) 
 					  c.warn('Warning: ' + dep + ' is undefined');
 				      });
@@ -461,6 +510,8 @@
 	   }
 	   else getNamespaceObject(namespaceObject, def.resource.namespace+ def.tag, d.factory);
 	 });
+       //by default this calls onFinished, but can be reassigned in config
+       allDone();
      }
      
      function onFinished() {
