@@ -135,7 +135,7 @@
      //internal vars
      resources, definers, dependencies, 
      definers_called, requests_pending, 
-     internalNamespace, blocking, stack,
+     internalNamespace, blocking, reqstack,
      
      c; //log variable, like console, but with verbosity level control
      
@@ -196,7 +196,7 @@
        if (pathPrefix[pathPrefix.length-1] !== '/') pathPrefix += '/';
        setTimeout(timedOut, timeOut*1000);
        blocking = false;
-       stack = [];
+       reqstack = [];
      };
      
      function timedOut() {
@@ -253,10 +253,6 @@
      function requestResource(request) {
        var res = request.resource;
        var requirer = request.requirer;
-       if (blocking) {
-	 stack.push(request);
-	 return;
-       }
        if (res.url) {
 	 if (res.blocks) blocking = true;
 	 if (res.loader && res.loader !== 'js') { 
@@ -318,11 +314,7 @@
      
      //called immediately by the browser after script is loaded and then executed
      function resourceLoaded(res, reqdefiner) {
-       if (blocking) {
-	 blocking = false;
-	 while (stack.length > 0 && !blocking)
-	   requestResource(stack.pop());
-       }
+       if (blocking) blocking = false;
        c.info( "finished loading: " + res.url);
        requests_pending -= 1;
        res.status = 'loaded';
@@ -356,6 +348,9 @@
 	   resolveDeps(definer);
 	   c.info('new definer added to defined: ' + definer.id + ' ' + definer.exOrder);
 	 } );
+       
+       while (reqstack.length > 0 && !blocking)
+	 requestResource(reqstack.pop());
        //as long as there are still requests pending don't finalize
        if (requests_pending === 0) finalize(); 
      }
@@ -368,7 +363,9 @@
 	 dep = parseDependencyId(depId);
 	 definer.dependencies.push(dep);
 	 if (dep.resource.status === 'new')   {
-	  requestResource({ resource:dep.resource, requirer: definer });
+	   var request = { resource:dep.resource, requirer: definer };
+	   if (blocking) reqstack.push(request);
+	   else requestResource(request);
 	 }
 	   
 	 else c.info(dep.resource.url + ' has already been requested');
