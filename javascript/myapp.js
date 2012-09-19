@@ -2,12 +2,13 @@ console.log(timestamp() + ": ------browser executing myapp file");
 
 define(
   {
-    name: 'foo',	    
-    load: ['somelib|'], 
-    require: ['data!doodads/d2','doodads/d1'],
-    factory: function(d2data, d1) 
-    {
-      log(blatest,  'executing myapp callback');
+    tag: 'foo',	    
+    // load: ['somelib|'], 
+    // require: ['data!http://code.jquery.com/jquery-1.8.1.min.js'],
+    require: ['doodads/d1'],
+    factory: function(d1)  {
+      console.log('d1 in myapp is: ', d1);
+      // log(blatest,  'executing myapp callback');
       // var b = 0;
       // var c = 0;
       // do {

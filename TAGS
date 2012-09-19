@@ -1,28 +1,39 @@
 
-v2bootstrap.js,1364
-     function init(config) {init117,3879
-     function timedOut() {timedOut157,5640
-     var isArray = function (value) {return168,5965
-       return Object.prototype.toString.call(value) === "[object Array]";return.toString169,6003
-     var isArray = function (value) {isArray168,5965
-     function getNamespaceObject(ns, path, value) {getNamespaceObject179,6449
-     function dirifyPath(path) {dirifyPath198,6921
-  function mytest() {mytest202,7053
-	   script_element.onloadDone = false;script_element.onload231,7976
-	   };script_element.onreadystatechange235,8131
-     function requestResource(res, requirer) {requestResource207,7177
-     function define() { definers_called.push(definer); }define254,8747
-     function resourceLoaded(res, reqdefiner) {resourceLoaded257,8893
-     function resolveDeps(definer) {resolveDeps302,10499
-     function parseDependencyId(id) {parseDependencyId318,10978
-     function execute() {execute351,12014
-     function onFinished() {onFinished378,12961
-     var loaders = {loaders.data393,13424
-		   if (typeof XMLHttpRequest !== "undefined") {function.xhr414,13839
-								      new ActiveXObject(id);xhr426,14378
-		   x.open('GET', url, true);x.onreadystatechange437,14654
-		 function fetchText (url, callback, errback) {fetchText435,14585
-		 function error (ex) {error451,14973
+v2bootstrap.js,2149
+       var emptyFun = function () {};init.emptyFun145,5566
+       c.error = c.warn = c.info = c.debug = function() {};c.dir147,5626
+       switch (verbose) {case.debug150,5758
+	 case "debug" : c.debug = function () { console.debug.apply(console, arguments); };case.info151,5784
+	 case "info" : c.info = function () { console.info.apply(console, arguments); };case.warn152,5869
+	 case "warn" : c.warn = function () { console.warn.apply(console, arguments); };case.error153,5951
+    function init(config) {init120,4164
+     function timedOut() {timedOut180,7037
+     var isArray = function (value) {return198,7598
+       return Object.prototype.toString.call(value) === "[object Array]";return.toString199,7636
+     var isArray = function (value) {isArray198,7598
+     function getNamespaceObject(ns, path, value) {getNamespaceObject209,8082
+     function dirifyPath(path) {dirifyPath228,8549
+	   script_element.onloadDone = false;script_element.onload260,9720
+	   };script_element.onreadystatechange264,9875
+     function requestResource(res, requirer) {requestResource236,8878
+     function define(definer) { definers_called.push(definer); }define284,10621
+     function resourceLoaded(res, reqdefiner) {resourceLoaded287,10774
+       function processDep(depId) {resolveDeps.processDep328,12326
+     function resolveDeps(definer) {resolveDeps324,12157
+       if (!resources[loader + url]) { resource = {resource.url369,13834
+					 url: url,resource.loader370,13886
+					 loader: loader,resource.status371,13902
+					 status: 'new',resource.blocks372,13924
+     function parseDependencyId(id) {parseDependencyId339,12678
+    function finalize() {finalize382,14185
+     function execute() {execute417,15124
+     function onFinished() {onFinished444,16120
+     var loaders = {loaders.data459,16599
+		   if (typeof XMLHttpRequest !== "undefined") {function.xhr480,17014
+								      new ActiveXObject(id);xhr492,17553
+		   x.open('GET', url, true);x.onreadystatechange503,17829
+		 function fetchText (url, callback, errback) {fetchText501,17760
+		 function error (ex) {error517,18148
 
 server.js,0
 
@@ -63,14 +74,18 @@ function printObject(o) {printObject22,531
   function execute() {execute205,5828
   function scriptsReady() {scriptsReady221,6255
 
-temp/disentangletest.js,303
+temp/disentangletest.js,490
 var path_subsitutions = {path_subsitutions.p11,0
   p1 : 'path/to/p1/',path_subsitutions.p22,26
-  var res = {getResource.res.status9,134
-function getResource(id) {getResource7,74
-  function assert(s,p, a,b) {run.assert48,1138
-  function test(a) {run.test55,1294
-function run () {run47,1120
+var pathPrefix = 'pathprefix/';pathPrefix8,94
+    resource = {resource.url52,1283
+      url: url,resource.loader53,1300
+      loader: loader,resource.status54,1316
+      status: 'new',resource.blocks55,1338
+function parseDependencyId(id) {parseDependencyId9,126
+  function assert(s,p, a,b) {run.assert78,1662
+  function test(a) {run.test85,1818
+function run () {run76,1626
 
 index.html,0
 

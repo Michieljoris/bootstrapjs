@@ -1,8 +1,8 @@
 "use strict";
 // TODO
-//production/development mode, concat and minify async defer script injection
+//production/development mode, concat and minify
 //execute definers when their dependencies have been met
-//some resources/js/nonmodule files might have to be loaded in a certain order
+//some resources/js/nonmodule files might have to be loaded in a certain order. defer?, implement blocking..
 
 // cyclic dependancies!! Possible, but module that requires module that directly or indirectly requires the first module cannot use any public api of the first module. 
 
@@ -15,7 +15,7 @@
 //   factory; module code/dat
 
 //   resource: resource this is defined in
-//   dependencies: list of dependencies whose resources have to be loaded and
+//   dependencies: array of dependencies whose resources have to be loaded and
 //                  its appropriate (tag) definer executed
 //                 before this definer's callback can be executed
 //   requirers: list of definers that need this definer
@@ -27,6 +27,7 @@
 //   status: new, requested, loaded, callbacks_executed
 //   blocks : boolean
 //   definers: definers defined in this resource    
+//   namespace: where to store this resource 
 // }
 
 // dependency = {
@@ -35,8 +36,6 @@
 //   met: boolean, has resourceLoaded been called if it is css or data,
 //                        has the callback been executed if it is a definer, tagged or not
 // }
-
-
 
 //Bootstrap
 (function(global) 
@@ -57,10 +56,8 @@
        //,assuming global=window and namespace=module and pathPrefix=javascript
        //and path_substitution[myapp]='dir1/dir2' then the object created will be:
        //window.module.myapp.dir3.module1, which can be required with myapp.dir3.module1
+       //if this variable is not defined at all objects assigned to an internal namespace
        globalNamespace : 'module',
-       
-       //----resource namespace
-       resourceNamespace: 'resources',
        
        //-----global loadpathPrefix
        //load all files relative to this path
@@ -76,20 +73,27 @@
        //-----mainjs     
        //First javascript file to load.
        mainjs: 'myapp',
+       
+       //----execute_on_dependencies_met 
+       //whether to execute callbacks as soon as their dependencies are met, or to 
+       //wait till all files are loaded
+       executeOnDependenciesMet: true,
 
        //-----head or body
        scriptInsertionLocation : 'head',
        
        //-----timeOut 
        //in seconds  
-       timeOut : 5,
+       timeOut : 1,
        
        //----verbose
-       verbose : true,
+       //none, error, warn, info, debug 
+       verbose : "debug",
        
        //-----allDone 
        // Gets called when all files are loaded and all callbacks executed
-       allDone : onFinished 
+       allDone : onFinished
+       
 
      },
      
@@ -97,22 +101,22 @@
      //the init function is added to the globalHook under this name
      //falsy will result in not anything being added, and will start
      //the  bootstrap process by itself, otherwise calling globalHook[initHook]()
-     //will do this.  
+     //will do this, with an optional config object as argument.  
      initHook = null,
      
      //config vars    
      globalNamespace, pathPrefix ,mainjs, scriptInsertionLocation, 
      globalHook, timeOut, verbose, insertionLocation, allDone,
-     path_subsitutions,
+     path_substitutions, executeNow,
      
      //internal vars
      resources, definers, dependencies, 
      definers_called, requests_pending, 
+     internalNamespace,
      
+     c; //log variable, like console, but with verbosity level control
      
-     l;
-     
-    function init(config) {
+     function init(config) {
        if (!config) config = default_config;
        
        globalHook = config.globalHook || default_config.globalHook,
@@ -124,28 +128,44 @@
        allDone = config.allDone || default_config.allDone,
        verbose = config.verbose == undefined ? default_config.verbose : config.verbose, 
        insertionLocation = document.getElementsByTagName(scriptInsertionLocation === 'head' ? 'head': 'body')[0],
-       
+       path_substitutions = config.path_substitutions || default_config.path_substitutions,
+       executeNow = config.executeOnDependenciesMet || default_config.executeOnDependenciesMet; 
        resources = {},
        definers = {},
        definers_called = [],
        requests_pending = 0;
-       l = verbose ? log : function() {};
+       internalNamespace = {};
+       if (!globalNamespace) globalNamespace = internalNamespace;
        
-       if (global[globalHook]) l("Warning: globalHook '" + globalHook + "' already exists");
+       c = {};
+       var emptyFun = function () {};
+       c.error = c.warn = c.info = c.debug = function() {};
+       c.dir = function () { console.dir.apply(console, arguments); };
+
+       switch (verbose) {
+       case "debug" : c.debug = function () { console.debug.apply(console, arguments); };
+       case "info" : c.info = function () { console.info.apply(console, arguments); };
+       case "warn" : c.warn = function () { console.warn.apply(console, arguments); };
+       case "error" :c.error = function () { console.error.apply(console, arguments); };
+       case "none" : break;
+       default: c.error("Unknown verbose level");
+       }
+       
+       if (global[globalHook]) c.warn("Warning: globalHook '" + globalHook + "' already exists");
 
        global[globalHook]= define;
        
        if (initHook && !global[globalHook][initHook] ) {
 	 global[globalHook][initHook] = init;
-	 l("Finished the bootstrap script, start loading the scripts with " + 
-	   globalHook + ".init({...config...})");
+	 c.info("Finished the bootstrap script, start loading the scripts with " + 
+		globalHook + ".init({...config...})");
        }
        else {
-	 timestamp("Loading first javascript file: " + mainjs + ".js");
-	 requestResource(parseDependencyId(mainjs),null);
+	 c.info("Loading first javascript file: " + mainjs + ".js");
+	 requestResource(parseDependencyId(mainjs).resource,null);
        }
        //make sure every path ends with a slash 
-       for (p in path_substitutions) 
+       for (var p in path_substitutions) 
 	 if (path_substitutions[p][path_substitutions[p].length-1] !== '/')
 	   path_substitutions[p] += '/'; 
        if (pathPrefix[pathPrefix.length-1] !== '/') pathPrefix += '/';
@@ -153,12 +173,19 @@
      };
      
      function timedOut() {
-       for (e in requestedUrls)
-	 if (requestedUrls[e] === 'requested') {
-	   throw "Error: bootstrap timed out, not all resources requested " + 
-	     "have been returned within the timeOut time frame";
-	   break; 
+       var noresponse = [];
+       for (var r in resources)
+	 if (resources[r].status === 'new' || resources[r].status === 'requested') {
+	   noresponse.push(resources[r]); 
 	 }
+       if (noresponse.length > 0) {
+	 c.error("Timed out:");
+	 noresponse.forEach(function(r) {
+			      c.error("  " + r.url);
+			    });
+	 // throw "Error: bootstrap timed out, not all resources requested " + 
+	 //   "have been returned within the timeOut time frame:";
+       } 
      }
      
      //----------------helper functions
@@ -175,7 +202,7 @@
      //when given a path of a/b/c and a ns of base, object base.a.b.c is returned, creating
      //the objects that don't exist yet
      function getNamespaceObject(ns, path, value) {
-       // console.log(ns, path, value);
+       // c.info(ns, path, value);
        if (path) {
 	 var parts = path.split('/');
 	 for (var i = 0; i < parts.length; i++) {
@@ -183,7 +210,7 @@
 	     if (value && i==parts.length-1) 
 	       ns[parts[i]] = value; 
 	     else if (ns[parts[i]] === undefined) {
-	       ns[parts[i]] = Object.create(null);
+	       ns[parts[i]] = {}; //Object.create(null);
 	     }
 	     ns = ns[parts[i]];
 	   }
@@ -193,19 +220,13 @@
        return ns;
      }
      
-     function dirifyPath(path) {
-      if (path) path = path.replace(/\./g, '/');
-       return path; //.replace(/-/g, '/');
-     }
-  
      //This inserts a script or css element into the dom, which causes an 
      //async load of the file, or does an xhr request for a file.  For both
      //resourceLoaded is given a callback.
      function requestResource(res, requirer) {
        if (res.url) {
 	 if (res.loader && res.loader !== 'js') { 
-	   log("loading non js resource ", res);
-	   // 'load': function (resourceId, require, callback, config) {
+	   c.info("loading non js resource ", res.url);
 	   if (res.loader !== 'css') res.loader = 'data';
 	   requests_pending += 1;
 	   res.status = 'requested';
@@ -213,11 +234,19 @@
 	     res.url, 
 	     { toUrl: function (url) { return url; }},
 	     function (result) { 
+	       // c.debug(result);
+	       if (res.loader === 'data')  {
+		 var namespaceObject = getNamespaceObject(global, globalNamespace);
+		 // c.debug(global, globalNamespace,namespaceObject);
+		 c.debug(res);
+		 if (res.isAbs) {
+		   namespaceObject[res.url] = result;
+		 }
+		 else getNamespaceObject(namespaceObject, res.namespace, result);
+	       }
 	       resourceLoaded(res, requirer);
-	       
-	       var namespaceObject = getNamespaceObject(global, dirifyPath(globalNamespace));
-	       getNamespaceObject(namespaceObject, res.url, result);
-	       log(result);  },
+	       // c.info(result);  
+	     },
 	     {/*config*/}
 	   );
 	 }
@@ -239,7 +268,7 @@
 	   requests_pending += 1;
 	   res.status = 'requested';
 	   insertionLocation.appendChild(script_element);
-	   l(timestamp() + ': inserting script tag for: '+ res.url);
+	   c.info( 'inserting script tag for: '+ res.url);
 	 }
        } 
        else throw "Cannot load empty url. Have you defined app?";
@@ -252,7 +281,7 @@
      
      //called immediately by the browser after script is loaded and then executed
      function resourceLoaded(res, reqdefiner) {
-       timestamp( "finished loading: " + res.url);
+       c.info( "finished loading: " + res.url);
        requests_pending -= 1;
        res.status = 'loaded';
        res.definers = definers_called;
@@ -260,10 +289,14 @@
        
        res.definers.forEach(
 	 function(definer) {
-	   definer.id = res.url + definer.tag; 
 	   definer.resource = res;
+	   if (!definer.tag) definer.tag = "";
+	   if (!definer.load) definer.load = [];
+	   if (!definer.require) definer.require = [];
+	   // definer.id = definer.tag ? res.url + "#" + definer.tag : res.url; 
+	   definer.id = res.url + "#" + definer.tag;
 	   definer.requirers = [];
-	   if (definers[definer.id]) timestamp("Warning: redefining " + definer.id); 
+	   if (definers[definer.id]) c.info("Warning: redefining " + definer.id); 
 	   definers[definer.id]=definer;
 	   // put this definer before its reqdefiner
 	   // adust the exOrdering of all definers with a exOrdering higher
@@ -272,45 +305,50 @@
 	     (function() {
 	     	var exOrder = reqdefiner ? reqdefiner.exOrder : 0;
 	     	Object.keys(definers).forEach(function(id) {
-	     					if (definers[url].exOrder >= exOrder) {
-	     					  definers[url].exOrder += 1;
+	     					if (definers[id].exOrder >= exOrder) {
+	     					  definers[id].exOrder += 1;
 	     					}
 	     				      });
 	     	return exOrder;
 	      })();
 	   resolveDeps(definer);
-	   timestamp('new definer added to defined: ' + definer.id + ' ' + definer.exOrder);
+	   c.info('new definer added to defined: ' + definer.id + ' ' + definer.exOrder);
 	 } );
        //as long as there are still requests pending don't finalize
        if (requests_pending === 0) finalize(); 
      }
      
      function resolveDeps(definer) {
-       timestamp('resolving deps for ' + definer.id, definer.required);
+       c.info('resolving deps for ' + definer.id, definer.load, definer.require);
        var dep;
        definer.dependencies = [];
-       function getDep(depId) {
+       function processDep(depId) {
 	 dep = parseDependencyId(depId);
 	 definer.dependencies.push(dep);
 	 if (dep.resource.status === 'new')  
 	   requestResource(dep.resource, definer);
-	 else timestamp(res.url + ' has already been requested');
+	 else c.info(res.url + ' has already been requested');
        };
        definer.load.forEach(processDep);
        definer.require.forEach(processDep);
      } 
      
      function parseDependencyId(id) {
+       if (!id) c.warn("Empty dependency...");
        var blocks = false, url, loader,
-       tag = "", resource;
-       
-       var isUri = false;
-       
+       tag = "", resource, isAbs = false,
+       namespace, ext = "";
+       //the presence of : would suggest an absolute path, as in http://bla.
+       if (id.indexOf(':') > -1) isAbs = true;
+       //any id finishing with a | indicates it should block executing of javascript, till
+       //it's loaded and has run itself.
        if (id[id.length-1] === '|') {  blocks  = true;
 				       id = id.substring(0, id.length-1);  }
+       //get the tag of the end of the id
        var lastHash = id.lastIndexOf('#');
        if (lastHash > -1) { tag = id.substring(lastHash+1);
 			    id = id.substring(0, lastHash);  }
+       //deduce loader from either prefix or .ext
        var splitId = id.split("!");
        if (splitId.length > 1 && 
 	   (splitId[0] === 'js' || splitId[0] === 'css' || splitId[0] === 'data')) {  
@@ -319,100 +357,122 @@
        else { var lastDot = id.lastIndexOf('.');
 	      var lastSlash =  id.lastIndexOf('/');
 	      if (lastDot>lastSlash) loader = id.substring(lastDot+1);  }
-       if (id.indexOf(':') > -1) isUri = true;
-       var firstSlash = id.indexOf('/');
-       if (firstSlash > -1) {
-	 var p = path_subsitutions[id.substring(0,firstSlash)];
-	 if (p) id = p + id.substring(firstSlash+1);
-       }
-       url = isUri ? id : pathPrefix + id;
+       //if neither were present, default to .js for relative paths, data for absolute paths
        if (!loader)  {
-	 if (!isUri) { loader = 'js';
-		       url += '.js';  }
+	 if (!isAbs) { loader = 'js';
+		       ext = '.js';  }
 	 else loader = 'data';  }
-       if (!resources[loader + url]) { resource = {
-					 url: url,
-					 loader: loader,
-					 status: 'new',
-					 blocks: blocks };
-				       resources[loader + url] = resource; }
-       else { resource = resources[loader + url];
+       //what's left of the id now is used as the namespace for any objects returned by this resource
+       //tag gets added to the namespace if a definer defined in the resource has a tag attr.
+       namespace = id;
+       if (namespace[namespace.length - 1] !== '/') namespace += '/';
+       //Modify relative urls: 
+       if (!isAbs) {
+         //Create url by path substitution 
+	 var firstSlash = id.indexOf('/');
+	 if (firstSlash > -1) {
+	   var p = path_substitutions[id.substring(0,firstSlash)];
+	   if (p) id = p + id.substring(firstSlash+1);
+	   // give url a custom prefix
+	 }
+	 url = pathPrefix + id + ext; 
+       }
+       else url = id;
+       //Create resource data structure
+       if (!resources[loader + "!" + url]) { resource = {
+					       url: url,
+					       namespace: namespace,
+					       isAbs: isAbs,
+					       loader: loader,
+					       status: 'new',
+					       blocks: blocks };
+					     resources[loader + "!" + url] = resource; }
+       else { resource = resources[loader + "!" + url];
 	      resource.blocks = blocks; }
+       //return a dependy
        return {  resource: resource,
 		 tag: tag,
 		 met: false  };
      } 
      
-    function finalize() {
-      log("Finished loading, finalizing:");
-      Object.keys(resources).forEach(
-	function (res) {
-	  res.definers.forEach( //array
-	    function (resdef) {
-	      resdef.dependencies.forEach( //array
-		function (dep) {
-		  dep.resource.definers.forEach(  //array
-		    function (def) {
-		      if (def.tag === dep.tag)
-			def.requirers.push(resdef);
-		    }); 
-		});
-	    });
-	});
-      Object.keys(definers).forEach(
-	function (def) {
-	  console.log(def.resource.url," is needed in ", 
-		      def.requirers.map(function(req) { return req.id;}));
-	  def.requirers.forEach( //array
-	    function (req) {
-	      if ( req.exOrder >  def.exOrder) 
-		log("Warning! Cyclic dependency: The objects imported from " + d +
-		    " will be undefined in " + r.url);
-	    });
-	});
-      execute();
-      allDone();
-    } 
+     function finalize() {
+       c.info("Finished loading, finalizing:");
+       Object.keys(resources).forEach(
+	 function (res) {
+	   resources[res].definers.forEach( //array
+	     function (resdef) {
+	       resdef.dependencies.forEach( //array
+		 function (dep) {
+		   dep.resource.definers.forEach(  //array
+		     function (def) {
+		       if (def.tag === dep.tag)
+			 def.requirers.push(resdef);
+		     }); 
+		 });
+	     });
+	 });
+       c.dir(definers);
+       // c.dir(resources);
+       Object.keys(definers).forEach(
+	 function (def) {
+	   def = definers[def];
+	   c.debug('def=' , def);
+	   c.info(def.resource.url," is needed in ", 
+		  def.requirers.map(function(req) { return req.id;}));
+	   def.requirers.forEach( //array
+	     function (req) {
+	       c.debug('req=', req);
+	       if ( req.exOrder <  def.exOrder) 
+		 c.warn("Warning! Cyclic dependency: The objects imported from " + def.id +
+			" will be undefined in " + req.id);
+	     });
+	 });
+       execute();
+       //by default this calls onFinished, but can be reassigned in config
+       allDone();
+     } 
      
      
      function execute() {
-       timestamp('Executing callbacks:');
-       var defarray = [];
-       var namespaceObject = getNamespaceObject(global, dirifyPath(globalNamespace));
-       for (var d in definers) defarray.push(definers[d]);
-       defarray.sort(function compare (a, b) {
-		       return a.exOrder > b.exOrder ? 1 : -1;
-		     });
-       defarray.forEach(
-	 function(d) {
-	   l(d.id+'\t'+ d.exOrder);
-	   if (typeof d.factory === 'function') {
-	     var self = getNamespaceObject(namespaceObject, d.id);
+       c.info('Executing callbacks:');
+       var sortedDefs = [];
+       //base object to assign our factories to
+       var namespaceObject = getNamespaceObject(global, globalNamespace);
+       //sort all definers according to execution order
+       for (var d in definers) sortedDefs.push(definers[d]);
+       sortedDefs.sort(function (a, b) {
+			 return a.exOrder > b.exOrder ? 1 : -1;
+		       });
+       //execute all definers' callbacks, or assign the factory directy to its namespace
+       sortedDefs.forEach(
+	 function(def) {
+	   c.info(def.id+'\t'+ def.exOrder);
+	   if (typeof def.factory === 'function') {
+	     var self = getNamespaceObject(namespaceObject, def.resource.namespace + def.tag);
 	     var depobjs = []; 
-	     d.depIds.forEach(function (dep) {
-				if (depobjs.push(getNamespaceObject(namespaceObject, dep)) == undefined) 
-				  log('Warning: ' + dep + ' is undefined');
-			      });
-	     var ret = d.factory.apply(self, depobjs);
-	     if (ret) getNamespaceObject(namespaceObject, d.id, ret);
+	     def.dependencies.forEach(function (dep) {
+					var path = dep.resource.namespace + dep.tag;
+					c.debug('path: ', path);
+					if (depobjs.push(getNamespaceObject(namespaceObject, path)) == undefined) 
+					  c.warn('Warning: ' + dep + ' is undefined');
+				      });
+	     var ret = def.factory.apply(self, depobjs);
+	     if (ret) getNamespaceObject(namespaceObject, def.resource.namespace + def.tag, ret);
 	   }
-	   else getNamespaceObject(namespaceObject, d.id, d.factory);
+	   else getNamespaceObject(namespaceObject, def.resource.namespace+ def.tag, d.factory);
 	 });
-       
-       allDone();
      }
      
      function onFinished() {
-       console.log(checkDeps);
-       l("file\treliantOn\trequiredby\texOrdering"); 
-       var defarray = [];
-       for (var d in definers) defarray.push(definers[d]);
-       defarray.sort(function compare (a, b) {
-		       return a.exOrder > b.exOrder ? 1 : -1;
-		     });
-       defarray.forEach(
+       c.debug("file\treliantOn\trequiredby\texOrdering"); 
+       var sortedDefs = [];
+       for (var d in definers) sortedDefs.push(definers[d]);
+       sortedDefs.sort(function compare (a, b) {
+			 return a.exOrder > b.exOrder ? 1 : -1;
+		       });
+       sortedDefs.forEach(
 	 function(d) {
-	   l(d.id+  '\t'+ d.exOrder);});
+	   c.info(d.id+  '\t'+ d.exOrder);});
      }
      
      
@@ -583,7 +643,7 @@
 		     url = fix ? fixProtocol(url, fix) : url;
 		     link = createLink(doc, url);
 		     head.appendChild(link);
-		     log(link);
+		     // log(link);
 		     callback(link.sheet || link.styleSheet);
 
 		   }
