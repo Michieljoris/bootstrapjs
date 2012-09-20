@@ -9,7 +9,7 @@ define(
     factory: function(d1, d2)  {
       // console.log('d1 in myapp is: ', d1.name);
       // console.log('d2 in myapp is: ', d2.name);
-      log('executing myapp callback');
+      console.log(this,'executing myapp callback');
       // var b = 0;
       // var c = 0;
       // do {
@@ -20,7 +20,7 @@ define(
       //   c+=1;
       // } while (c < 100);
       // self.makePublic();
-      console.log(this, "this");
+      // console.log(this, "this");
       // console.log(d1, "d1");
       // console.log(d2, "d2" );
     }
