@@ -194,7 +194,7 @@
        var emptyFun = function () {};
        c.error = c.warn = c.info = c.debug = function() {};
        c.dir = function () { console.dir.apply(console, arguments); };
-
+ 
        switch (verbose) {
        case "debug" : c.debug = function () { console.debug.apply(console, arguments); };
        case "info" : c.info = function () { console.info.apply(console, arguments); };
@@ -392,24 +392,38 @@
      } 
      
      function executeCallbacksNow(definer, dependency) {
+       function exe(definer) {
+	 //if all dependencies have met, execute the callback;
+	 if (definer && definer.factory && 
+	     typeof definer.factory === 'function')  
+	 {
+	   if (definer.dependencies.map(
+		 function(a) { return a.met; }).reduce(
+		   function(a,b) { return a && b; }, true )) {
+		     executeCallback(definer);
+		     return definer.hasProduced = true;
+		   }
+	   else return false;
+	 }     
+	 else return true;
+       } 	 
        
-       if (dependency.resource.loader === 'js' && dependency.resource.definers.length == 0);
-	 
-	 if (!definer) return;
-       
+       dependency.met = true;
        dependency.resource.definers.forEach(
 	 function (def) {
-       	   if (def.factory && typeof def.factory === 'function') {
-	     
-       	     // definer.dependencies.push(dependency);
-       	     // dependency.requirers.push(definer);
+	   if (def.factory) {
+       	     if (typeof def.factory !== 'function') {
+	       getNamespaceObject(namespaceObject, def.resource.namespace + def.tag, def.factory);
+	       def.hasProduced = true;
+	     }
+	     else {
+	       if (!exe(definer)) dependency.met = false;
+	     }
        	   }
 	 });
-       if (definer.dependencies.map(
-	     function(a) { return a.met; }).reduce(
-	       function(a,b) { return a && b; }, true )) ;
-	 
-	 }
+       exe(definer);
+     } 
+     
      
      //pry dependency id apart  
      function parseDependencyId(id) {
@@ -550,19 +564,17 @@
      }
 
      function executeCallback(def) {
-       if (typeof def.factory === 'function') {
-	 var self = getNamespaceObject(namespaceObject, def.resource.namespace + def.tag);
-	 var depobjs = []; 
-	 //all these dependencies should exist in the namespace..
-	 def.dependencies.forEach(function (dep) {
-				    var path = dep.resource.namespace + dep.tag;
-				    // c.debug('path: ', path);
-				    if (depobjs.push(getNamespaceObject(namespaceObject, path)) == undefined) 
-				      c.warn('Warning: ' + dep + ' is undefined');
-				  });
-	 var ret = def.factory.apply(self, depobjs);
-	 if (ret) getNamespaceObject(namespaceObject, def.resource.namespace + def.tag, ret);
-       }
+       var self = getNamespaceObject(namespaceObject, def.resource.namespace + def.tag);
+       var depobjs = []; 
+       //all these dependencies should exist in the namespace..
+       def.dependencies.forEach(function (dep) {
+				  var path = dep.resource.namespace + dep.tag;
+				  // c.debug('path: ', path);
+				  if (depobjs.push(getNamespaceObject(namespaceObject, path)) == undefined) 
+				    c.warn('Warning: ' + dep + ' is undefined');
+				});
+       var ret = def.factory.apply(self, depobjs);
+       if (ret) getNamespaceObject(namespaceObject, def.resource.namespace + def.tag, ret);
      }
      
      //superfluous.., just some printing out of debug data
