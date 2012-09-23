@@ -4,7 +4,7 @@ define(
   {
     // name: 'foo',	    
     // load: ['https://ajax.googleapis.com/ajax/libs/jquery/1.8.1/jquery.min.js'], 
-    // require: ['doodads/d2'],
+    // inject: ['doodads/d1'],
     factory: function() 
     {  console.log(this, "executing d2 callback");
        // console.log(d1.name, "d1 in d2");

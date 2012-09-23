@@ -5,7 +5,7 @@ define(
     tag: 'foo',	    
     // load: ['somelib|'], 
     // inject: ['data!http://code.jquery.com/jquery-1.8.1.min.js'],
-    inject: ['doodads/d1|', 'doodads/d2'],
+    inject: ['doodads/d1'],
     factory: function(d1, d2)  {
       // console.log('d1 in myapp is: ', d1.name);
       // console.log('d2 in myapp is: ', d2.name);
@@ -25,6 +25,3 @@ define(
       // console.log(d2, "d2" );
     }
   });
-
-
-

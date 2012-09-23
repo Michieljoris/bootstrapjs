@@ -1,8 +1,8 @@
 Bootstrapjs
 =========
 
-This is a resource loader along the lines of [requirejs], [curljs],
-[bdLoader] and many more. It is not compliant to the AMD specification,
+This is a resource loader along the lines of [requirejs], [curl],
+[bdLoader] and many more. It is not compliant to the [AMD] specification,
 but does more or less the same. 
 
 Features:
@@ -136,3 +136,6 @@ Default config:
 
 
 [requirejs]: http://daringfireball.net/
+[AMD]: http://wiki.commonjs.org/wiki/Modules/AsynchronousDefinition
+[curl]: https://github.com/unscriptable/curl
+[bdLoader]: http://bdframework.org/bdLoad/
