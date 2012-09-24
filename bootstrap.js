@@ -90,13 +90,13 @@
        
        //-----global pathPrefix
        //Load files relative to this path
-       pathPrefix: "javascript/",
+       pathPrefix: "test/",
        
        //-----paths 
        //a way to map namespaces to directories. This way you can refer to modules defined in 
        //separate rootfolders by prefixing the object name with its subsitution
        paths: {
-	 myapp: 'path/to/package.js'
+	 // myapp: 'path/to/package.js'
        },
        
        //-----main     
@@ -255,7 +255,8 @@
 	     if (value && i==parts.length-1) 
 	       ns[parts[i]] = value; 
 	     else if (ns[parts[i]] === undefined) {
-	       ns[parts[i]] = {}; //Object.create(null);
+	       // ns[parts[i]] = {}; //Object.create(null);
+	       ns[parts[i]] = Object.create(null);
 	     }
 	     ns = ns[parts[i]]; } } };
        return ns; }
@@ -335,7 +336,11 @@
 	 if (request.dependency.resource.blocks) blocking = true;
 	 requestResource(request.dependency, request.definer); }
        //see if we can execute any callbacks..
-       if(executeASAP) executeNow(dependency);
+       if(executeASAP) {
+
+///----------------all the deps that >0 requirers ....,
+	 executeNow(dependency);
+       };	 
        //as long as there are still requests pending don't finalize
        if (requests_pending === 0) finalize(); }
      
@@ -352,7 +357,21 @@
        if (definer.tag === dependency.tag) {
 	 dependency.definer = definer;
 	 definer.dependency = dependency;
-	 definer.requirers = dependency.requirers; }
+	 definer.requirers = dependency.requirers;
+	 
+	 definer.exOrder = 
+	   (function() {
+	      var exOrder = definer.requirers.reduce(
+		function (a,b) { 
+	    	  return a.exOrder < b.exOrder ? a : b;}, { exOrder: Number.MAX_VALUE }).exOrder;
+	      if (exOrder === Number.MAX_VALUE) exOrder = 0;
+	      // log(D,exOrder);
+	      Object.keys(definers).forEach(
+		function(id) { 
+		  if (definers[id].exOrder >= exOrder) definers[id].exOrder += 1;  });
+	      return exOrder;})();
+	 resolveDeps(definer);
+       }
        else {  if (!dependencies[depId])  
 	       dependencies[depId] = { requirers: [],
 				       resource: dependency.resource,
@@ -360,36 +379,34 @@
 	       
 	       definer.dependency = dependencies[depId];
 	       definer.requirers = dependencies[depId].requirers;
-	       dependencies[depId].definer = definer; };
+	       dependencies[depId].definer = definer; 
+	       if (definer.requirers.length > 0) {
+		 log(D,'am i calling resolvedep?');
+		 definer.exOrder = 
+		   (function() {
+		      var exOrder = definer.requirers.reduce(
+			function (a,b) { 
+	    		  return a.exOrder < b.exOrder ? a : b;}, { exOrder: Number.MAX_VALUE }).exOrder;
+		      if (exOrder === Number.MAX_VALUE) exOrder = 0;
+		      // log(D,exOrder);
+		      Object.keys(definers).forEach(
+			function(id) { 
+			  if (definers[id].exOrder >= exOrder) definers[id].exOrder += 1;  });
+		      return exOrder;})();
+		 resolveDeps(definer);
+
+	       }
+	    };
        //the following can happen if more than one definer in a file has the
        //the same tag, or no tag.
        if (definers[definer.id]) log(I,"Warning: redefining " + definer.id); 
        // put this definer before its requirers
        // adust the exOrdering of all definers with a exOrdering higher
        // or equal to the minimum of its requirers' exOrder property by 1 upwards
-       log(D, "------");
-       log(D, definer.requirers.map(function(e) { return e.exOrder;}));
-       log(D, definer.requirers.map(function(e) { return e.id;}));
-       
-       definer.exOrder = 
-	 (function() {
-	    var exOrder = definer.requirers.reduce(
-	      function (a,b) { 
-	    	return a.exOrder < b.exOrder ? a : b;}, { exOrder: Number.MAX_VALUE }).exOrder;
-	    if (exOrder === Number.MAX_VALUE) exOrder = 0;
-	    log(D,exOrder);
-	    Object.keys(definers).forEach(
-	      function(id) { 
-		if (definers[id].exOrder >= exOrder) definers[id].exOrder += 1;  });
-	    return exOrder;})();
        //one more for the collection
-       definers[definer.id]=definer;
-       log(D, Object.keys(definers).map(function(e) { return definers[e].exOrder;}));
-       log(D, Object.keys(definers).map(function(e) { return definers[e].id;}));
-       
+       definers[definer.id]=definer;  
        log(I,definer,'New definer added to definers: ' + definer.id + ' ' + definer.exOrder);
        //and see what else this definer is going to need...
-       resolveDeps(definer);
      } 
      
      
@@ -438,31 +455,25 @@
 	   dependency.met = false; } }
        var failsafe = 0;
        function backtrace(def) {
+	     log(D,'definer',def);
+       	 def.requirers.forEach(function(e){
+				 log(D,"requirer", e);
+			       });
        	 def.requirers.forEach(
-	   function(req) { if (exe(req)) {
+	   function(req) {
+	     log(D,req.id);
+	     if (req.exOrder && exe(req)) {
+	       log(D, 'backtracing');
+	     log(D,req.exOrder);
 			     req.dependency.met = true;
        			    if (failsafe++ < 50)  backtrace(req); 
 			   } }); }
        //if we have a leaf, backtrace as far as you can!!!
-       log(D, 'backtracing');
        if (dependency.met) backtrace(dependency.definer); } 
      
      //make the apropriate connections, check for circular dependencies and execute the callbacks
      function finalize() {
-       Object.keys(resources).forEach(
-	 function (res) {
-	   resources[res].definers.forEach( //array
-	     function (resdef) {
-	       resdef.dependencies.forEach( //array
-		 function (dep) {
-		   dep.resource.definers.forEach(  //array
-		     function (def) {
-		       if (def.tag === dep.tag)
-			 def.requirers.push(resdef);
-		     }); 
-		 });
-	     });
-	 });
+       
        log(I,"Finished loading, finalizing:");
        Object.keys(definers).forEach(
 	 function (def) {
