@@ -1,9 +1,15 @@
+
+DO NOT USE, IN DEVELOPMENT!!!!!
+============
+
+
 Bootstrapjs
 =========
 
-This is a resource loader along the lines of [requirejs], [curl],
-[bdLoader] and many more. It is not compliant to the [AMD] specification,
-but does more or less the same. 
+This is a resource loader similar to [requirejs], [curl],
+[bdLoader] and many more. It is not compliant to the [AMD]
+specification at the moment, simply because it would be less flexible, though it could be and might be made
+compliant in the future.
 
 Features:
 
@@ -55,7 +61,19 @@ Example
 		 return "hello"; //however, this one overrides the previous two
 		}
 	  });
-	  
+
+Try it
+-----
+
+	git clone git@github.com:Michieljoris/bootstrapjs.git
+	cd bootstrap
+	node server.js
+	
+Then open up localhost:9080 in your browser. 
+You will see a test page with jasmine test results.
+
+
+
 	  
 Reference
 ====

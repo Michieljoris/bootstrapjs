@@ -3,7 +3,6 @@ http = require("http"),
 url = require("url"),
 path = require("path"),
 fs = require("fs");
-
 http.createServer(
     function(request, response) 
     {

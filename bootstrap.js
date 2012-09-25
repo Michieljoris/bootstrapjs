@@ -9,6 +9,8 @@
 //- make the loaders plugins external to this file and comply the amd spec a bit more, advantage is that this file becomes smaller, more custom loaders could be added easily, and also used as standalone loaders in the modules. 
 // Disadvantage is that there are more network requests, one for every loader, and that the bootstrap code
 // would have to be modified for this to accomodate loading dependencies for loading dependencies..
+//-have an amd! loader, it would conform to the amd spec for defining modules, so that for example we can load underscore.
+//-concatenate and uglify and offer for download a bundled compressed production mode bootstrap in the browser, maybe by entering a command in the console? Or by setting a config option
 // 
 //Notes:
 //1. To load non-module files in a certain order, concatenate them into one js file, insert them directly
@@ -28,24 +30,10 @@
 //still control the order of the execution of the callbacks, though you might might want to put the non bootstrap ffiles first. You could set it up so that just before bootstrap executes the callbacks, it would check wther all
 //the dependency objects are there, and if not it would again try to download them.
 
+//4 I talk interchangeably about defines and modules throughout this source code, however
+// these can be configured to be named anything you want, by setting the appropriate config variable.
+
 //datastructures:
-// definer = {
-//   id : unique string made from: this.resource.url + this.tag
-//   tag: "string", 
-//   load: array of files,
-//   inject: array of files, to inserted into factory
-//   factory; module code/dat
-
-//------------- internal attributes---------------------
-//   resource: resource this definer is defined in
-//   dependency: the dependency that wants this definer
-//   dependencies: array of dependencies whose resources have to be loaded and
-//                 its appropriate (tag) definer executed
-//                 before this definer's callback can be executed
-//   requirers: points to the requirers array of the dependency that wants this definer.
-//   
-// }
-
 // resource = {
 //   id: loader!url
 //   url: relative or absolute path
@@ -57,14 +45,30 @@
 // }
 
 // dependency = {
-//   id: resource#tag
+//   id: resource.id#tag
 //   resource: file this dependency would like to load
 //   tag: subid if there more than one id per file, no tag is an empty string tag
 //   definer: definer that is referred by by the resource#tag combo
 //   met: boolean, has resourceLoaded been called if it is css or data,
 //                 has the callback been executed if it is a definer
 //   requirers: array of definers that asks for this dependency
+//   dependencies: array of dependencies whose resources have to be loaded and
+//                 its appropriate (tag) definer executed
+//                 before this dependency's callback can be executed
+//   isBonus: the definer was found in a file but was not the definer
+//             that the dependency was after
 // }
+
+// definer = {
+//   tag: "string", 
+//   load: array of files,
+//   inject: array of files, to inserted into factory
+//   factory; module code/dat
+
+//------------- internal attributes---------------------
+//   dependency: the dependency that wants this definer
+// }
+
 
 //Bootstrap
 (function(global)
@@ -160,6 +164,7 @@
      E=1, W=2, I=3, D=4,
      levels = ['none', 'error', 'warn', 'info', 'debug'];
      
+     //------------------------------------------------------------ 
      function log() {
        var args = Array.prototype.slice.call(arguments);
        var level = args[0];
@@ -167,6 +172,7 @@
        if (level <= verbosity) console[levels[level]].apply(console, args);
      }
      
+     //------------------------------------------------------------ 
      function init(config) {
        //make sure all config vars have at least some default value
        if (!config) config = default_config;
@@ -233,18 +239,21 @@
        }
      };
      
+     //------------------------------------------------------------ 
      //called after timeOut seconds. Checks if all requested resources have actually been loaded.
      function timedOut() {
        var noresponse = [];
-       for (var r in resources)
-	 if (resources[r].status !== 'loaded') {
-	   noresponse.push(resources[r]); 
+       log(D, dependencies);
+       for (var d in dependencies)
+	 if (dependencies[d].resource.status !== 'loaded') {
+	   noresponse.push(dependencies[d].id); 
 	 }
        if (noresponse.length > 0) {
-	 log(E,"Timed out:");
+	 log(E,"Timed out. Unresolved dependencies:");
 	 noresponse.forEach(function(r) {
 			      log(E,"  " + r.url); }); } }
      
+     //------------------------------------------------------------ 
      //when given a path of a/b/c and a ns of base, object base.a.b.c is returned, creating
      //the objects that don't exist yet, and assigning value to the end of the path (c)
      function makeNamespace(ns, path, value) {
@@ -261,13 +270,12 @@
 	     ns = ns[parts[i]]; } } };
        return ns; }
      
+     //------------------------------------------------------------ 
      //This inserts a script or css element into the dom, which causes an 
      //async load of the file, or does an xhr request for a file.  For both
      //onload events resourceLoaded is eventually called.
-     function requestResource(dependency, requirer) {
+     function requestResource(dependency) {
        var res = dependency.resource;
-       // var requirer = request.requirer;
-       // if (res.blocks) blocking = true;
        //xhr and css tag insertion 
        if (res.loader && res.loader !== 'js' && res.loader !== 'bootstrap') 
        { log(I,"Making xhr request for a non bootstrap resource " + res.url);
@@ -310,183 +318,189 @@
 	      if (res.blocks) log(I,'Blocking any further script injections till this one has run'); }
        res.status = 'requested'; }
 
+     //------------------------------------------------------------ 
      //the only global to leak out of this closure, under a name set in the configuration 
      //these functions get executed right after a js file has been loaded by the browser
-     //we collect the arguments to these calls here.
-     function define(definer) { definers_called.push(definer); }
-     
-     //called immediately by the browser after script is loaded and then executed
-     function resourceLoaded(dependency) {
-       var res = dependency.resource;
-       //bookkeeping
-       log(I, "Finished loading: " + res.url);
-       if (res.blocks && blocking) blocking = false;
-       requests_pending-= 1;
-       res.status = 'loaded';
-       
-       // dependency.met = true;
-       if (res.loader === 'bootstrap')  
-       { res.definers =  definers_called;
-	 res.definers.forEach(function (def) { addDefiner(def, res, dependency); } ); }
-       else res.definers = []; 
-       
-       definers_called=[]; //reset for the next script to come in
-       while (depstack.length > 0 && !blocking) {
-	 var request = depstack.shift();
-	 if (request.dependency.resource.blocks) blocking = true;
-	 requestResource(request.dependency, request.definer); }
-       //see if we can execute any callbacks..
-       if(executeASAP) {
-
-///----------------all the deps that >0 requirers ....,
-	 executeNow(dependency);
-       };	 
-       //as long as there are still requests pending don't finalize
-       if (requests_pending === 0) finalize(); }
-     
-     function addDefiner(definer, res, dependency) {
-       //now we've got the definers, might as well add the definer object directly to the 
-       //dependency object
-       var depId = dependency.resource.loader + '!' + 
-	 dependency.resource.url + '#' + definer.tag;
-       definer.resource = res;
+     //we collect the arguments to these calls here. To conform more to the AMD specs
+     //you would adapt this function, by analyzing the arguments and creating a standard
+     //definer object {tag:.., load:.., inject:.., factory:..} to add to definers_called 
+     function define(definer) { 
+       //fix up this new definer
        if (!definer.tag) definer.tag = "";
        if (!definer.load) definer.load = [];
        if (!definer.inject) definer.inject = [];
-       definer.id = res.url + "#" + definer.tag;
-       if (definer.tag === dependency.tag) {
-	 dependency.definer = definer;
-	 definer.dependency = dependency;
-	 definer.requirers = dependency.requirers;
-	 
-	 definer.exOrder = 
-	   (function() {
-	      var exOrder = definer.requirers.reduce(
-		function (a,b) { 
-	    	  return a.exOrder < b.exOrder ? a : b;}, { exOrder: Number.MAX_VALUE }).exOrder;
-	      if (exOrder === Number.MAX_VALUE) exOrder = 0;
-	      // log(D,exOrder);
-	      Object.keys(definers).forEach(
-		function(id) { 
-		  if (definers[id].exOrder >= exOrder) definers[id].exOrder += 1;  });
-	      return exOrder;})();
-	 resolveDeps(definer);
+       definers_called.push(definer); }
+     
+     //------------------------------------------------------------ 
+     //called immediately by the browser after script is loaded and then executed
+     //beginning of thread
+     function resourceLoaded(dependency) {
+       var res = dependency.resource;
+       //bookkeeping
+       log(I, "************Processing: " + dependency.id + '*************');
+       if (res.blocks && blocking) blocking = false;
+       requests_pending-= 1;
+       res.status = 'loaded';
+       //to prevent files with .js extension to be interpreted as bootstrap files with
+       //definers in them we check for the loader type (only dependencies without an extension
+       //are interpreted as bootstrap files), otherwise you can't load files that happen to do a
+       //define call
+       if (res.loader === 'bootstrap')  
+       { res.definers =  definers_called;
+	 var resolved_dependencies = [];
+	 res.definers.forEach(function (def) { 
+				var depId = dependency.resource.loader + '!' + 
+       				  dependency.resource.url + '#' + def.tag;
+				if (!dependencies[depId]) {
+				  log(I, 'Bonus definer found: ' + depId);
+				  dependencies[depId] = { id: depId, requirers: [],
+							  isBonus: true,
+							  resource: dependency.resource,
+							  tag: def.tag,
+							  dependencies: [] }; }
+				else resolved_dependencies.push(dependencies[depId]);
+				tieInDefiner(dependencies[depId], def); } ); 
+	 resolved_dependencies.forEach(function(dep) { processDependency(dep);});
        }
-       else {  if (!dependencies[depId])  
-	       dependencies[depId] = { requirers: [],
-				       resource: dependency.resource,
-				       tag: definer.tag };
-	       
-	       definer.dependency = dependencies[depId];
-	       definer.requirers = dependencies[depId].requirers;
-	       dependencies[depId].definer = definer; 
-	       if (definer.requirers.length > 0) {
-		 log(D,'am i calling resolvedep?');
-		 definer.exOrder = 
-		   (function() {
-		      var exOrder = definer.requirers.reduce(
-			function (a,b) { 
-	    		  return a.exOrder < b.exOrder ? a : b;}, { exOrder: Number.MAX_VALUE }).exOrder;
-		      if (exOrder === Number.MAX_VALUE) exOrder = 0;
-		      // log(D,exOrder);
-		      Object.keys(definers).forEach(
-			function(id) { 
-			  if (definers[id].exOrder >= exOrder) definers[id].exOrder += 1;  });
-		      return exOrder;})();
-		 resolveDeps(definer);
-
-	       }
-	    };
+       // else res.definers = []; 
+       definers_called=[]; //reset for the next script to come in
+       }
+     
+     //---------------------------------------------------------
+     //this will try to resolve any further dependencies this dependency has
+     //and try to execute any callback
+     //continued from resourceLoaded, or async called from resolveDeps, 
+     function processDependency(dependency) {
+       log(I, 'processing dependency ' + dependency.id);
+       //see what else this dependency is going to need...
+       resolveDeps(dependency); 
+      //and execute the callback if possible..
+       executeNow(dependency);
+       //now is the time to make any further requests for resources..
+       if (depstack.length > 0) log(I, 'Finally, request queued dependencies'); 
+       while (depstack.length > 0 && !blocking) {
+	 dependency = depstack.shift();
+	 if (dependency.resource.blocks) blocking = true;
+	 requestResource(dependency); }
+       //as long as there are still requests pending don't finalize
+       if (requests_pending === 0) finalize(); }
+     //end of thread..
+     
+     //------------------------------------------------------------ 
+     //tie the definer to the dependency if tags match, otherwise make new dependencies, 
+     //received as a bonus...
+     function tieInDefiner(dependency, definer) {
+       //bonus dependency/definer
+       dependency.definer = definer; 
+       definer.dependency = dependency;
+       definer.id = dependency.resource.url + '#' + definer.tag;
        //the following can happen if more than one definer in a file has the
        //the same tag, or no tag.
        if (definers[definer.id]) log(I,"Warning: redefining " + definer.id); 
-       // put this definer before its requirers
-       // adust the exOrdering of all definers with a exOrdering higher
-       // or equal to the minimum of its requirers' exOrder property by 1 upwards
-       //one more for the collection
+       log(I,'New definer added to definers: ' + definer.id + ' ' + definer.exOrder);
        definers[definer.id]=definer;  
-       log(I,definer,'New definer added to definers: ' + definer.id + ' ' + definer.exOrder);
-       //and see what else this definer is going to need...
      } 
      
+     function setExeOrder() {
+     //do a depth-first search for all paths to the main node, setting exeOrders on the way  
+     }
      
-     //make more requests for resources, depending on the modules load and inject arrays
-     function resolveDeps(definer) {
-       log(I,'Resolving deps for ' + definer.id);
-       if (definer.load.length > 0) log(I,'load ' + definer.load);
-       if (definer.inject.length > 0) log(I,'inject ' + definer.inject);
-       definer.dependencies = [];
+     //------------------------------------------------------------ 
+     //make more requests for resources, depending on the modules' load and inject arrays
+     function resolveDeps(dependency) {
+       log(I,'Resolving deps for ' + dependency.id);
+       log(I, dependency.definer.load, dependency.definer.inject);
+       // log(D, dependency);
+       var definer = dependency.definer;
        function processDep(depId) {
-	 var dependency = parseDependencyId(depId);
-	 definer.dependencies.push(dependency);
-	 dependency.requirers.push(definer); 
-	 if (dependency.resource.status === 'new')   {
-	   depstack.push({ definer: definer, dependency: dependency });
-	   dependency.resource.status = 'queued'; }
-	 else log(I,dependency.resource.url + ' is requested once more!!'); };
+	 var dep_dependency = parseDependencyId(depId);
+	 dependency.dependencies.push(dep_dependency);
+	 dep_dependency.requirers.push(dependency); 
+	 if (dep_dependency.resource.status === 'new')   {
+           log(I,'queueing ' + dep_dependency.id );
+	   depstack.push(dep_dependency);
+	   dep_dependency.resource.status = 'queued'; }
+	 else {
+	 if (dep_dependency.resource.status === 'loaded') {
+	   log(I, 'The resource for this dependency has already been loaded: ' + dep_dependency.id  ); 
+	   if (dep_dependency.isBonus) {
+	     dep_dependency.isBonus = false;
+	     //make quasi browser callback, as if we just loaded this new definer
+	     //though it had come for free with a previous resourceLoad
+	     setTimeout(function() { processDependency(dep_dependency); }, 0);
+	     requests_pending++;
+	     log(I, 'This is a bonus definer being activated.. ,setting callback'); 
+	   }
+	 } 
+	 else log(I,'this dependency is already queued: ' + dep_dependency.id);  
+	 }
+       }
        definer.load.forEach(processDep);
        definer.inject.forEach(processDep); } 
      
+     //------------------------------------------------------------ 
      function executeNow(dependency) {
+       if (!executeASAP) return;
        //function that, if all dependencies are met, executes the callback;
-       function exe(definer) {
-	 if (definer.factory && typeof definer.factory === 'function')  
-	 { if (definer.dependencies.every(function(e) { return e.met;}))
-	   { log(I,'All dependencies have been met for ' + definer.id +
+       function exe(dep) {
+	 if (dep.definer.factory && typeof dep.definer.factory === 'function')  
+	 { 
+	   if (dep.dependencies.every(function(e) { return e.met;}))
+	   { log(I,'All dependencies have been met for ' + dep.definer.id +
 		 ' ,executing the callback');
-	     executeCallback(definer);
+	     executeCallback(dep);
 	     return true; }
-	   else { log(I,"There are still dependencies missing for " + definer.id);
+	   else { log(I,"There are still dependencies missing for " + dep.definer.id);
 		  return false; } }     
 	 else return true; } 	 
        
        dependency.met = true;
        if (dependency.resource.loader === 'bootstrap')  {
+	 log(I, 'Trying to execute callback of ' + dependency.id);
 	 var depdef = dependency.definer; 
 	 if (depdef) {
 	   if (depdef.factory) {
        	     if (typeof depdef.factory !== 'function')  
 	       makeNamespace(namespace, depdef.resource.namespace + def.tag, def.factory);
-	     else dependency.met = exe(depdef); } } 
+	     else dependency.met = exe(dependency); } } 
 	 else  {
 	   log(E,(definer ? "Definer " + definer.id  : main) + 
 		  ' has asked for the dependency ' +  dependency.id + ' in the resource ' +
 		  dependency.resource.url + ', which has no matching definers.' );
 	   dependency.met = false; } }
        var failsafe = 0;
-       function backtrace(def) {
-	     log(D,'definer',def);
-       	 def.requirers.forEach(function(e){
-				 log(D,"requirer", e);
-			       });
-       	 def.requirers.forEach(
+       function backtrace(dep) {
+       	 dep.requirers.forEach(
 	   function(req) {
-	     log(D,req.id);
-	     if (req.exOrder && exe(req)) {
-	       log(D, 'backtracing');
-	     log(D,req.exOrder);
-			     req.dependency.met = true;
-       			    if (failsafe++ < 50)  backtrace(req); 
+	     if (exe(req)) { req.met = true;
+       			     if (failsafe++ < 50)  backtrace(req); 
+			     else throw('Error: We were in long loop!!!!'); 
 			   } }); }
        //if we have a leaf, backtrace as far as you can!!!
-       if (dependency.met) backtrace(dependency.definer); } 
+       if (dependency.met) {
+	 log(I, 'Backtracking..');
+	 backtrace(dependency); 
+	 log(I, 'Backtracking done');
+       }
+} 
      
+     //------------------------------------------------------------ 
      //make the apropriate connections, check for circular dependencies and execute the callbacks
      function finalize() {
-       
        log(I,"Finished loading, finalizing:");
        Object.keys(definers).forEach(
 	 function (def) {
 	   def = definers[def];
 	   // log(D,'def=' , def);
-	   log(I,def.resource.namespace + "#" + def.tag + " is needed in " +  
-	       def.requirers.map(function(req) { return req.resource.namespace + "#" + req.tag;}));
-	   def.requirers.forEach( //array
-	     function (req) {
-	       // log(D,'req=', req);
-	       if ( req.exOrder <  def.exOrder) 
-		 log(W,"Warning! Cyclic dependency: The objects imported from " + def.id +
-		     " might be undefined in " + req.id); }); });
+	   log(I,def.dependency.resource.namespace + "#" + def.tag + " is needed in " +  
+	       def.dependency.requirers.map(function(req) { return req.resource.namespace + "#" + req.tag;}));
+	   // def.dependency.requirers.forEach( //array
+	   //   function (req) {
+	   //     // log(D,'req=', req);
+	   //     if ( req.exOrder <  def.exOrder) 
+	   // 	 log(W,"Warning! Cyclic dependency: The objects imported from " + def.id +
+	   // 	     " might be undefined in " + req.id); }); 
+});
        //execute the callbacks
        if (!executeASAP) onExecute(executeLater);
        //by default this calls onLoaded_native, but can be reassigned in config
@@ -507,19 +521,23 @@
 	   if (typeof def.factory === 'function') executeCallback(def);
 	   else makeNamespace(namespace, def.resource.namespace + def.tag, def.factory); }); }
 
-     function executeCallback(def) {
-       var self = makeNamespace(namespace, def.resource.namespace + def.tag);
+     function executeCallback(dep) {
+       var self = makeNamespace(namespace, dep.resource.namespace + dep.tag);
        var depobjs = []; 
-       //all these dependencies should exist in the namespace..
-       def.dependencies.forEach(function (dep) {
+       //all these dependencies should exist in the namespace, they should have been made with
+       //previous calls to this function
+       dep.dependencies.forEach(function (dep) {
 				  var path = dep.resource.namespace + dep.tag;
 				  // log(D,'path: ', path);
-				  if (depobjs.push(makeNamespace(namespace, path)) == undefined) 
+				  if (depobjs.push(makeNamespace(namespace, path)) === undefined) 
 				    log(W,'Warning: ' + dep + ' is undefined'); });
-       var ret = def.factory.apply(self, depobjs);
-       if (ret) makeNamespace(namespace, def.resource.namespace + def.tag, ret); }
+       var ret = dep.definer.factory.apply(self, depobjs);
+       if (ret) makeNamespace(namespace, dep.resource.namespace + dep.tag, ret); }
      
-     //pry dependency id apart  
+     //pry dependency id apart, this should use regexp
+     //TODO preserve any parameter passing (?a=1&b='bla')
+     //format is: (loader!)(protocol:)url(.ext)(?parameters)(#tag)(|)
+     //TODO regex is: ([a-zA-Z]+!)([a-zA-Z]+:)[a-zA-Z/]+(\.[a-zA_Z])(?parameters)(#tag)(|) TOD
      function parseDependencyId(id) {
        var originalId = id;
        if (!id) log(W,"Empty dependency...");
@@ -593,9 +611,10 @@
 	 else { resource = resources[loader + "!" + url];
 		resource.blocks = blocks; }
 	 dependencies[depId] = { resource: resource,
-				 id: originalId,
+				 id: depId,
 				 tag: tag,
 				 met: false,  
+				 dependencies: [],
 			         requirers: [] }; }
        return dependencies[depId]; } 
      

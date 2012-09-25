@@ -1,4 +1,4 @@
-console.log("---------browser executing d2 file");
+console.log("---------browser executing f2 file");
 
 define(
   {
