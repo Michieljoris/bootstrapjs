@@ -72,7 +72,8 @@ These options and more are settable through a config object. This object can be 
 
 If you've called your global function define, calling it will define a module. What define expects is an object with the following optional members:
 
-* tag: string to differentiate between multiple modules in a file. Without this tag a module is stored in a namespace that matches the path of the file the module is defined in. With a tag the module is assigned to the namespace as a member. That means it will become part of the api of any modules defined in this file that don't have a tag.
+* tag: string to differentiate between multiple modules in a file. Without this tag a module is stored in a namespace that matches the path of the file the module is defined in. With a tag the module is assigned to the namespace as a member. That means it will become part of the api of the module defined in this file that doesn't have a tag.
+No tag defaults to an empty string. If multiple modules are defined with the same tag, the last one will be the one that defines the module.  
 
 * load: array of strings, these dependencies are loaded before any callbacks are called.
 
@@ -127,6 +128,10 @@ in the right order. I think of it as a river delta, with the mouth of the river 
 As long as water flows into every canal when the river splits up into its many canals, and splits up at every junction, all canals will have water flowing through them and all travelers everywhere will reach the sea eventually. 
 
 To actively check for circular dependencies bootstrap builds a list of callbacks and assigns them execution order numbers. This is done by doing a simple depth-first search for the delta root, and assigning execution order numbers as we go along. This is done every time a new module is loaded. In the end every module will have a proper ranking in the execution list. If then any module requires a module with a ranking higher than itself (meaning it would be executed after itself), we've got a circular dependency. This could also be used to determine the execution order after concatenation of all the files for a production version of the development environment. An alternative way of deciding execution order would be just to record it as the dependencies get resolved. 
+
+Examples
+---
+TODO
 
   
 Default config: 

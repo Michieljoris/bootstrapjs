@@ -1,16 +1,23 @@
 "use strict";
 // TODO
-// -make a minimal version (strip out console, executeLater/executeASAP and more?)
-// -make a node or picolisp script that concatenates all files and puts the right calls between files
-// --> as a first step make a list of the files that will be concatenated together.. You would need the
+// *make a minimal version (strip out console, executeLater/executeASAP and more?)
+// *make a node or picolisp script that concatenates all files and puts the right calls between files
+// **> as a first step make a list of the files that will be concatenated together.. You would need the
 // executeLater mode, and disable the loadResource mechanism.  
-// -Maybe load js files in stages? Or all together? Or before the html load? Or after?
-//- replace executelater/asap with dom ready events or other events, to be inserted into the dependency lists?
-//- make the loaders plugins external to this file and comply the amd spec a bit more, advantage is that this file becomes smaller, more custom loaders could be added easily, and also used as standalone loaders in the modules. 
+// *Maybe load js files in stages? Or all together? Or before the html load? Or after?
+//* replace executelater/asap with dom ready events or other events, to be inserted into the dependency lists?
+//* make the loaders plugins external to this file and comply the amd spec a bit more, advantage is that this file becomes smaller, more custom loaders could be added easily, and also used as standalone loaders in the modules. 
 // Disadvantage is that there are more network requests, one for every loader, and that the bootstrap code
 // would have to be modified for this to accomodate loading dependencies for loading dependencies..
-//-have an amd! loader, it would conform to the amd spec for defining modules, so that for example we can load underscore.
-//-concatenate and uglify and offer for download a bundled compressed production mode bootstrap in the browser, maybe by entering a command in the console? Or by setting a config option
+//*have an amd! loader, it would conform to the amd spec for defining modules, so that for example we can load underscore.
+//*concatenate and uglify and offer for download a bundled compressed production mode bootstrap in the browser, maybe by entering a command in the console? Or by setting a config option
+//* don't try to execute callbacks if you've just queued dependencies to be loaded...
+//* what's going with onloaded event and jasmine? It just does not always fire... Also not in firefox
+// and even when it does, it seems to fire to early as far as the javascript is concerned, jasmine gives 
+// errors for undefined views etc. So I put execJasmine(); straight into my onload event, when bootstrap is 
+// finished loading everything, including the modules.
+//* once bootstrap has run at least once, it knows what files to download, so you could hardwire them, insert
+// them all at once, and have them load parallel. But in dynamic mode you can easily adjust dependencies. 
 // 
 //Notes:
 //1. To load non-module files in a certain order, concatenate them into one js file, insert them directly
@@ -105,7 +112,7 @@
        
        //-----main     
        //First javascript file to load, the bootstrap so to speak
-       main: 'myapp#foo',
+       main: 'myapp',
 
        //-----scriptInsertionLocation
        //Head or body, or any other element
@@ -153,7 +160,7 @@
      
      //internal vars
      resources, definers, dependencies,
-     definers_called, requests_pending, 
+     definers_called, requests_pending, timeouts_pending, 
      blocking, depstack, 
      
      //returns a timestamp in ms without arguments,
@@ -213,6 +220,7 @@
        definers_called = [];
        //if there are no more requests, we're finished...
        requests_pending = 0;
+       timeouts_pending = 0;
        //set to true if a dependency id ends in |
        blocking = false;
        //when blocking any further requests are stacked here, 
@@ -243,7 +251,9 @@
      //called after timeOut seconds. Checks if all requested resources have actually been loaded.
      function timedOut() {
        var noresponse = [];
-       log(D, dependencies);
+       log(D, 'dependencies: ', dependencies);
+       log(D, 'requests pending', requests_pending);
+       log(D, 'timeouts pending', timeouts_pending);
        for (var d in dependencies)
 	 if (dependencies[d].resource.status !== 'loaded') {
 	   noresponse.push(dependencies[d].id); 
@@ -276,11 +286,14 @@
      //onload events resourceLoaded is eventually called.
      function requestResource(dependency) {
        var res = dependency.resource;
+       requests_pending += 1;
+       res.status = 'requested'; 
        //xhr and css tag insertion 
        if (res.loader && res.loader !== 'js' && res.loader !== 'bootstrap') 
-       { log(I,"Making xhr request for a non bootstrap resource " + res.url);
-	 if (res.loader !== 'css') res.loader = 'data';
-	 requests_pending += 1;
+       { if (res.loader !== 'css') {
+	   log(I,"Making xhr request for " + res.url);
+	   res.loader = 'data'; }
+	 else log(I,"Inserting css: " + res.url);
 	 //call one of the loaders defined at the bottom of this file
 	 loaders[res.loader].load(
 	   res.url, 
@@ -293,6 +306,7 @@
 	       if (res.isAbs) namespace[res.url] = result;
 	       else makeNamespace(namespace, res.namespace, result);
 	     }
+	     log(D, 'calling resourceLoaded from css/xhr');
 	     resourceLoaded(dependency);
 	   },
 	   {/*config*/}); }
@@ -312,11 +326,10 @@
 	      //     resourceLoaded(dependency, requirer);
 	      //   }
 	      // };
-	      requests_pending += 1;
 	      insertionLocation.appendChild(script_element);
 	      log(I, 'Inserting script tag for: '+ res.url);
 	      if (res.blocks) log(I,'Blocking any further script injections till this one has run'); }
-       res.status = 'requested'; }
+     }
 
      //------------------------------------------------------------ 
      //the only global to leak out of this closure, under a name set in the configuration 
@@ -335,11 +348,11 @@
      //called immediately by the browser after script is loaded and then executed
      //beginning of thread
      function resourceLoaded(dependency) {
+       requests_pending-= 1;
        var res = dependency.resource;
        //bookkeeping
-       log(I, "************Processing: " + dependency.id + '*************');
+       log(I, "************Processing: " + dependency.id + '*************  ');
        if (res.blocks && blocking) blocking = false;
-       requests_pending-= 1;
        res.status = 'loaded';
        //to prevent files with .js extension to be interpreted as bootstrap files with
        //definers in them we check for the loader type (only dependencies without an extension
@@ -362,9 +375,9 @@
 				tieInDefiner(dependencies[depId], def); } ); 
 	 resolved_dependencies.forEach(function(dep) { processDependency(dep);});
        }
-       // else res.definers = []; 
+       else processDependency(dependency);
        definers_called=[]; //reset for the next script to come in
-       }
+     }
      
      //---------------------------------------------------------
      //this will try to resolve any further dependencies this dependency has
@@ -374,16 +387,21 @@
        log(I, 'processing dependency ' + dependency.id);
        //see what else this dependency is going to need...
        resolveDeps(dependency); 
-      //and execute the callback if possible..
+       //and execute the callback if possible..
        executeNow(dependency);
        //now is the time to make any further requests for resources..
        if (depstack.length > 0) log(I, 'Finally, request queued dependencies'); 
        while (depstack.length > 0 && !blocking) {
 	 dependency = depstack.shift();
+	 console.log("Hello", dependency);
 	 if (dependency.resource.blocks) blocking = true;
-	 requestResource(dependency); }
+	 requestResource(dependency); 
+       }
        //as long as there are still requests pending don't finalize
-       if (requests_pending === 0) finalize(); }
+       if (requests_pending === 0 && timeouts_pending === 0) {
+	 finalize(); 
+       }
+     }
      //end of thread..
      
      //------------------------------------------------------------ 
@@ -408,10 +426,6 @@
      //------------------------------------------------------------ 
      //make more requests for resources, depending on the modules' load and inject arrays
      function resolveDeps(dependency) {
-       log(I,'Resolving deps for ' + dependency.id);
-       log(I, dependency.definer.load, dependency.definer.inject);
-       // log(D, dependency);
-       var definer = dependency.definer;
        function processDep(depId) {
 	 var dep_dependency = parseDependencyId(depId);
 	 dependency.dependencies.push(dep_dependency);
@@ -427,16 +441,22 @@
 	     dep_dependency.isBonus = false;
 	     //make quasi browser callback, as if we just loaded this new definer
 	     //though it had come for free with a previous resourceLoad
-	     setTimeout(function() { processDependency(dep_dependency); }, 0);
-	     requests_pending++;
+	     setTimeout(function() { timeouts_pending--;
+				     processDependency(dep_dependency); }, 0);
+	     timeouts_pending++;
 	     log(I, 'This is a bonus definer being activated.. ,setting callback'); 
 	   }
 	 } 
 	 else log(I,'this dependency is already queued: ' + dep_dependency.id);  
 	 }
        }
-       definer.load.forEach(processDep);
-       definer.inject.forEach(processDep); } 
+       var definer = dependency.definer;
+       if (definer) {
+	 log(I,'Resolving deps for ' + dependency.id);
+	 log(I, definer.load, definer.inject);
+	 definer.load.forEach(processDep);
+	 definer.inject.forEach(processDep); } 
+       }
      
      //------------------------------------------------------------ 
      function executeNow(dependency) {
@@ -488,12 +508,12 @@
      //make the apropriate connections, check for circular dependencies and execute the callbacks
      function finalize() {
        log(I,"Finished loading, finalizing:");
-       Object.keys(definers).forEach(
-	 function (def) {
-	   def = definers[def];
+       Object.keys(dependencies).forEach(
+	 function (dep) {
+	   dep = dependencies[dep];
 	   // log(D,'def=' , def);
-	   log(I,def.dependency.resource.namespace + "#" + def.tag + " is needed in " +  
-	       def.dependency.requirers.map(function(req) { return req.resource.namespace + "#" + req.tag;}));
+	   log(I,dep.id + " is needed in " +  
+	       dep.requirers.map(function(req) { return req.id;}));
 	   // def.dependency.requirers.forEach( //array
 	   //   function (req) {
 	   //     // log(D,'req=', req);
@@ -504,7 +524,8 @@
        //execute the callbacks
        if (!executeASAP) onExecute(executeLater);
        //by default this calls onLoaded_native, but can be reassigned in config
-       onLoaded(); } 
+       onLoaded(); 
+} 
      
      //all the callbacks gathered during the loading phase get executed now in the right order,
      //so that their dependencies are all met
@@ -567,7 +588,7 @@
 	   && (splitId[0] === 'js' || splitId[0] === 'css' || splitId[0] === 'data')
 	  ) { loader = splitId[0];
 	      id = id.substring(id.indexOf('!') + 1);  }
-       else loader = ext;
+       else loader = ext.slice(1);
        // else {if (ext) loader = id.substring(lastDot+1);  }
        //if neither were present, default to .js for relative paths, data for absolute paths
        if (!loader)  {
@@ -588,7 +609,7 @@
 	 // give url a custom prefix
 	 url = pathPrefix + id + ext; 
        }
-       else url = id;
+       else url = id + ext;
        
        //return a dependency
        //the dependency is the same as the resource, except when there are is more than one
@@ -624,7 +645,53 @@
      
      //superfluous.., just some printing out of debug data
      function onLoaded_native() {
-       console.debug('definers', definers, 'dependencies', dependencies,'resources', resources); }
+       describe("In bootstrap", function() {
+       		 it("all modules are loaded", function() {
+       		      expect(global.nmodules).toBe(6);
+       		    });
+       	       });  
+       
+       execJasmine();
+       console.debug('definers', definers, 'dependencies', dependencies,'resources', resources); 
+       log(I, "The end");
+     }
+     
+     function execJasmine() {
+       var jasmineEnv = jasmine.getEnv();
+       jasmineEnv.updateInterval = 250;
+
+       /**
+	Create the `HTMLReporter`, which Jasmine calls to provide results of each spec and each suite. The Reporter is responsible for presenting results to the user.
+	*/
+       var htmlReporter = new jasmine.HtmlReporter();
+       jasmineEnv.addReporter(htmlReporter);
+
+       /**
+	Delegate filtering of specs to the reporter. Allows for clicking on single suites or specs in the results to only run a subset of the suite.
+	*/
+       jasmineEnv.specFilter = function(spec) {
+	 return htmlReporter.specFilter(spec);
+       };
+
+       /**
+	Run all of the tests when the page finishes loading - and make sure to run any previous `onload` handler
+
+	### Test Results
+
+	Scroll down to see the results of all of these specs.
+	*/
+       // var currentWindowOnload = window.onload;
+       // global.onload = function() {
+       //   if (currentWindowOnload) {
+       //     currentWindowOnload();
+       //   }
+
+       //   // document.querySelector('.version').innerHTML = jasmineEnv.versionString();
+       //   execJasmine();
+       // };
+       jasmineEnv.execute();
+     }
+     
      
      //---------------------loaders--------------------------- 
      //not my code but useful. Might change this to proper AMD plugins.
@@ -793,9 +860,14 @@
 		     fix = 'fixSchemalessUrls' in config ? config['fixSchemalessUrls'] : doc.location.protocol;
 		     url = fix ? fixProtocol(url, fix) : url;
 		     link = createLink(doc, url);
+		     
 		     head.appendChild(link);
-		     // log(link);
-		     callback(link.sheet || link.styleSheet);
+		     //link does not have a onload, so create a fake one.. Our code needs real async callbacks,
+		     //not a synchronous timeline. This function needs to return immediately and create an
+		     //fake event for the onload of css, loaded or not...
+		     setTimeout(function() { 
+				  callback(link.sheet || link.styleSheet);
+				}, 0);
 
 		   }
 
