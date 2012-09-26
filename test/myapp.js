@@ -6,7 +6,7 @@ define(
     // load: ['test.css'],
     // inject: ['a1/f1', 'a1/f1#foo', 'a1/f3'],
     inject: ['a1/f1', 'myapp#foo', 'a1/f1#foo'],
-    // inject: ['myapp#foo'],
+    // inject: ['a1/f1', 'a1/f1#foo'],
     factory: function(a1f1, myappfoo, a1f1foo)  {
       console.log(this,'executing myapp callback');
       describe("In myapp", function() {
@@ -23,7 +23,7 @@ define(
 		      expect(a1f1foo.name).toBe('a1f1foo');
 		    });
 	       });
-      console.log(myappfoo.name);
+      console.log(a1f1);
       this.name = 'myapp';
     }
   });
@@ -54,5 +54,6 @@ define(
       this.name = 'myappfoo';
     }
   });
+
 
 

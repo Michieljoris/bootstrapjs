@@ -2,6 +2,7 @@
 DO NOT USE IN DEVELOPMENT!!!!!
 ============
 Still testing..
+Need to add a lot more tests.
 
 
 Bootstrapjs

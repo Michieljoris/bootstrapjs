@@ -1,5 +1,8 @@
 "use strict";
 // TODO
+
+//http://jsfiddle.net/NvMEu/5/
+// this is a link for a method of having a callback on load of css, copy of it see the bottom of this file
 // *make a minimal version (strip out console, executeLater/executeASAP and more?)
 // *make a node or picolisp script that concatenates all files and puts the right calls between files
 // **> as a first step make a list of the files that will be concatenated together.. You would need the
@@ -371,12 +374,16 @@
 							  resource: dependency.resource,
 							  tag: def.tag,
 							  dependencies: [] }; }
-				else resolved_dependencies.push(dependencies[depId]);
+				else {
+				  log(I,'New definer added to dependency ' + depId);
+				  resolved_dependencies.push(dependencies[depId]);
+				}
 				tieInDefiner(dependencies[depId], def); } ); 
 	 resolved_dependencies.forEach(function(dep) { processDependency(dep);});
        }
        else processDependency(dependency);
        definers_called=[]; //reset for the next script to come in
+       endThread();
      }
      
      //---------------------------------------------------------
@@ -384,16 +391,18 @@
      //and try to execute any callback
      //continued from resourceLoaded, or async called from resolveDeps, 
      function processDependency(dependency) {
-       log(I, 'processing dependency ' + dependency.id);
+       log(I, '*********processing dependency ' + dependency.id);
        //see what else this dependency is going to need...
        resolveDeps(dependency); 
        //and execute the callback if possible..
        executeNow(dependency);
+     }       
+     
+    function endThread() {
        //now is the time to make any further requests for resources..
        if (depstack.length > 0) log(I, 'Finally, request queued dependencies'); 
        while (depstack.length > 0 && !blocking) {
-	 dependency = depstack.shift();
-	 console.log("Hello", dependency);
+	 var dependency = depstack.shift();
 	 if (dependency.resource.blocks) blocking = true;
 	 requestResource(dependency); 
        }
@@ -408,14 +417,12 @@
      //tie the definer to the dependency if tags match, otherwise make new dependencies, 
      //received as a bonus...
      function tieInDefiner(dependency, definer) {
-       //bonus dependency/definer
        dependency.definer = definer; 
        definer.dependency = dependency;
        definer.id = dependency.resource.url + '#' + definer.tag;
        //the following can happen if more than one definer in a file has the
        //the same tag, or no tag.
        if (definers[definer.id]) log(I,"Warning: redefining " + definer.id); 
-       log(I,'New definer added to definers: ' + definer.id + ' ' + definer.exOrder);
        definers[definer.id]=definer;  
      } 
      
@@ -442,7 +449,8 @@
 	     //make quasi browser callback, as if we just loaded this new definer
 	     //though it had come for free with a previous resourceLoad
 	     setTimeout(function() { timeouts_pending--;
-				     processDependency(dep_dependency); }, 0);
+				     processDependency(dep_dependency); 
+				     endThread(); }, 0);
 	     timeouts_pending++;
 	     log(I, 'This is a bonus definer being activated.. ,setting callback'); 
 	   }
@@ -547,7 +555,8 @@
        var depobjs = []; 
        //all these dependencies should exist in the namespace, they should have been made with
        //previous calls to this function
-       dep.dependencies.forEach(function (dep) {
+       var l = dep.definer.load.length;
+       dep.dependencies.slice(l).forEach(function (dep) {
 				  var path = dep.resource.namespace + dep.tag;
 				  // log(D,'path: ', path);
 				  if (depobjs.push(makeNamespace(namespace, path)) === undefined) 
@@ -653,7 +662,7 @@
        
        execJasmine();
        console.debug('definers', definers, 'dependencies', dependencies,'resources', resources); 
-       log(I, "The end");
+       log(I, "THE END THE END THE END THE END THE END THE END THE END THE END THE END THE END ");
      }
      
      function execJasmine() {
@@ -881,5 +890,72 @@
      else init(default_config);
  })(this);
 
+// <!DOCTYPE html>
+// <html>
+//     <head>
+//     </head>
+//     <body>
+//         <div class="css_load_catcher"></div>
+//         <div class="css_load_time"></div>
+//     </body>
+// </html>
+// ​
+// <!DOCTYPE html>
+// <html>
+//     <head>
+//     </head>
+//     <body>
+//         <div class="css_load_catcher"></div>
+//         <div class="css_load_time"></div>
+//     </body>
+// </html>
+// ​
 
+            // InnerCallback = function(link, callback)
+            // {
+            //     $('.css_load_time').html((new Date().getTime() - link._loadStart) + 'ms');
+            //     callback(link);
+            // }
+            
+            // LoadCss = function(url, callback)
+            // {
+            //     var link = document.createElement('link');
 
+            //     link.rel   = 'stylesheet';
+            //     link.type  = 'text/css';
+            //     link.href  = url;
+            //     link._rawUrl = url;
+                
+            //     if ($.browser.msie || $.browser.opera)
+            //     {
+            //         link.onload = function()
+            //         {
+            //             InnerCallback(link, callback);
+            //         }
+            //     }
+            //     else if ($.browser.mozilla)
+            //     {
+            //         $('.css_load_catcher').bind('animationstart', function()
+            //         {
+            //             InnerCallback(link, callback);
+            //         });
+            //     }
+            //     else if ($.browser.webkit)
+            //     {
+            //         $('.css_load_catcher').bind('webkitAnimationStart', function()
+            //         {
+            //             InnerCallback(link, callback);
+            //         });                
+            //     }
+                
+            //     link._loadStart = new Date().getTime();
+            //     $('head')[0].appendChild(link);                
+            // }
+            
+            // $(document).ready(function()
+            // {
+            //     LoadCss('https://dl.dropbox.com/s/hzot90l848gihof/css_load_test.css?dl=1', function(link)
+            //     {
+            //         console.log(link, ' successefully loaded');
+            //     });
+            // });​
