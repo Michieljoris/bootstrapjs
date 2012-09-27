@@ -13,9 +13,11 @@ define(
       		      expect(a1f1foo.name).toBe('a1f1foo');
       		    });
       	       });
-       return {
-	 name: 'a1f1'
-       };
+       this.name = 'a1f1';
+       console.log(module.a1.f1.name);
+       // return {
+       // 	 name: 'a1f1'
+       // };
     } 
   });
 
@@ -25,20 +27,23 @@ define(
     // load: ['https://ajax.googleapis.com/ajax/libs/jquery/1.8.1/jquery.min.js'], 
     inject: ['a1/f1#foo'],
     factory: function(me) 
-    {  console.log(this, "executing f1 callback");
+    {  console.log(this, "executing f1/foo callback");
        var This = this;
       describe("In a1/f1#foo", function() {
       		 it("this is defined", function() {
       		      expect(this).toBeDefined(); });
-		 it("module.a1.f1foo to equal to me", function() {
-		      expect(module.a1.f1foo).toEqual(me);
+		 it("module.a1.f1.foo to equal to me", function() {
+		      expect(module.a1.f1.foo).toEqual(me);
 		    });
       		 it("this is equal to injected identity", function() {
       		      expect(This).toEqual(me);
       		    });
       	       });
-       
+       // this.test = "testing";
        this.name = 'a1f1foo'; 
+      console.log(module.a1.f1.foo); 
+      console.log(me); 
+      console.log(This);
     } 
   });
 

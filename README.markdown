@@ -210,7 +210,7 @@ Default config:
   
 
 
-[requirejs]: http://daringfireball.net/
+[requirejs]: htt 
 [AMD]: http://wiki.commonjs.org/wiki/Modules/AsynchronousDefinition
 [curl]: https://github.com/unscriptable/curl
 [bdLoader]: http://bdframework.org/bdLoad/

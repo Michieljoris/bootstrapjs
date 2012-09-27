@@ -98,7 +98,7 @@
        //,assuming global=window and namespace=module and pathPrefix=javascript
        //and paths[myapp]='dir1/dir2' then the object created will be:
        //window.module.myapp.dir3.module1, which can be injected with myapp.dir3.module1
-       //If this variable is not defined at all objects are assigned to an internal namespace
+       //If this variable is not defined at all objects are stored internally
        //and not accessible outside the module
        namespace: 'module',
        
@@ -116,6 +116,7 @@
        //-----main     
        //First javascript file to load, the bootstrap so to speak
        main: 'myapp',
+       // main: 'main',
 
        //-----scriptInsertionLocation
        //Head or body, or any other element
@@ -193,7 +194,7 @@
        
        namespace = config.namespace || default_config.namespace;
        //base object to assign our factories to
-       namespace = namespace ? makeNamespace(global, namespace) : {};
+       namespace = namespace ? getObject(global, namespace) : null;
        
        pathPrefix = config.pathPrefix || default_config.pathPrefix;
        main = config.main || default_config.main;
@@ -269,13 +270,18 @@
      //------------------------------------------------------------ 
      //when given a path of a/b/c and a ns of base, object base.a.b.c is returned, creating
      //the objects that don't exist yet, and assigning value to the end of the path (c)
-     function makeNamespace(ns, path, value) {
+     function getObject(ns, path, value) {
+       if (!namespace) return Object.create(null);
+       // log(E, 'making namespace for ', path);
        if (path) {
 	 var parts = path.split('/');
 	 for (var i = 0; i < parts.length; i++) {
 	   if (parts[i]) {
-	     if (value && i==parts.length-1) 
+	     if (value && i==parts.length-1) {
 	       ns[parts[i]] = value; 
+	       
+	       
+	     }
 	     else if (ns[parts[i]] === undefined) {
 	       // ns[parts[i]] = {}; //Object.create(null);
 	       ns[parts[i]] = Object.create(null);
@@ -304,11 +310,15 @@
 	   //callback for xhr and css
 	   function (result) { 
 	     //we only care about the data callback
-	     if (res.loader === 'data')  {
+	     // if (res.loader === 'data')  {
 	       //pop the data in the namespace tree 
-	       if (res.isAbs) namespace[res.url] = result;
-	       else makeNamespace(namespace, res.namespace, result);
-	     }
+	       // log(D, 'popping result in namespace..', res.namespace, result);
+	       // if (res.isAbs) namespace[res.url] = result;
+	       // else dependency.value = getObject(namespace, dependency.namespace, result);
+	       dependency.value = result; 
+	       if (!result && res.loader === 'data') log(W, 'empty response from xhr request');
+	       if (!result && res.loader === 'css') log(W, 'empty response from css link insertion ???');
+	     // }
 	     log(D, 'calling resourceLoaded from css/xhr');
 	     resourceLoaded(dependency);
 	   },
@@ -373,6 +383,8 @@
 							  isBonus: true,
 							  resource: dependency.resource,
 							  tag: def.tag,
+							  namespace:  dependency.resource.namespace + 
+							  (def.tag ? '/' + def.tag : ''),
 							  dependencies: [] }; }
 				else {
 				  log(I,'New definer added to dependency ' + depId);
@@ -394,8 +406,17 @@
        log(I, '*********processing dependency ' + dependency.id);
        //see what else this dependency is going to need...
        resolveDeps(dependency); 
-       //and execute the callback if possible..
-       executeNow(dependency);
+       
+       switch (dependency.resource.loader) {
+       case 'data':getObject(namespace, dependency.namespace, dependency.value); 
+       case 'js': ;
+       case 'css' : break; 
+       default: 
+	 dependency.value = getObject(namespace, dependency.namespace);
+	 dependency.value.mytest='working';
+       }
+	 //and execute the callback if possible..
+	 executeNow(dependency);
      }       
      
     function endThread() {
@@ -489,7 +510,8 @@
 	 if (depdef) {
 	   if (depdef.factory) {
        	     if (typeof depdef.factory !== 'function')  
-	       makeNamespace(namespace, depdef.resource.namespace + def.tag, def.factory);
+	       // dependency.value = getObject(namespace, dependency.namespace, depdef.factory);
+	       dependency.value = depdef.factory;
 	     else dependency.met = exe(dependency); } } 
 	 else  {
 	   log(E,(definer ? "Definer " + definer.id  : main) + 
@@ -548,21 +570,29 @@
        sortedDefs.forEach(
 	 function (def) { 
 	   if (typeof def.factory === 'function') executeCallback(def);
-	   else makeNamespace(namespace, def.resource.namespace + def.tag, def.factory); }); }
+	   // else getObject(namespace, def.dependency.namespace, def.factory); 
+	 });
+     } 
 
      function executeCallback(dep) {
-       var self = makeNamespace(namespace, dep.resource.namespace + dep.tag);
+       log(D, 'executing callback: ', dep.id);
+       // var self = getObject(namespace, dep.namespace);
        var depobjs = []; 
        //all these dependencies should exist in the namespace, they should have been made with
        //previous calls to this function
        var l = dep.definer.load.length;
-       dep.dependencies.slice(l).forEach(function (dep) {
-				  var path = dep.resource.namespace + dep.tag;
-				  // log(D,'path: ', path);
-				  if (depobjs.push(makeNamespace(namespace, path)) === undefined) 
-				    log(W,'Warning: ' + dep + ' is undefined'); });
-       var ret = dep.definer.factory.apply(self, depobjs);
-       if (ret) makeNamespace(namespace, dep.resource.namespace + dep.tag, ret); }
+       dep.dependencies.slice(l).forEach(function (d) {
+				  // depobjs.push(getObject(namespace, dep.namespace));
+				  depobjs.push(d.value);
+				  if (d.value === undefined) 
+				    log(W,'Warning: injecting undefined (' + d.id + ') into ' + dep.id ); });
+       
+       var ret = dep.definer.factory.apply(dep.value, depobjs);
+       // if (ret)  dep.value = getObject(namespace, dep.namespace, ret); 
+       if (ret)  dep.value = ret;
+       // else dep.value = getObject(namespace, dep.namespace, self);
+       // if (namespace) getObject(namespace, dep.namespace, dep.value);
+     }
      
      //pry dependency id apart, this should use regexp
      //TODO preserve any parameter passing (?a=1&b='bla')
@@ -607,7 +637,7 @@
        //what's left of the id now is used as the namespace for any objects returned by this resource
        //tag gets added to the namespace if a definer defined in the resource has a tag attr.
        ns = id;
-       // if (namespace[namespace.length - 1] !== '/') namespace += '/';
+       if (loader === 'data') ns = ns + ext;
        //Modify relative urls: 
        if (!isAbs) {
          //Create url by path substitution 
@@ -644,6 +674,7 @@
 				 id: depId,
 				 tag: tag,
 				 met: false,  
+				 namespace: ns + (tag ? '/' + tag : ''),
 				 dependencies: [],
 			         requirers: [] }; }
        return dependencies[depId]; } 
@@ -875,7 +906,8 @@
 		     //not a synchronous timeline. This function needs to return immediately and create an
 		     //fake event for the onload of css, loaded or not...
 		     setTimeout(function() { 
-				  callback(link.sheet || link.styleSheet);
+				  // callback(link.sheet || link.styleSheet);
+				  callback(url);
 				}, 0);
 
 		   }
