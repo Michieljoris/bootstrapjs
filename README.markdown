@@ -18,11 +18,11 @@ Features:
 * Automatic dependency resolution
 * Circular dependency detection
 * Loading of non-bootstrap js files 
-* Loading of non js files (css, xhr)
-* Loading of absolute urls
+* Loading of non-js files (css, html, txt etc)
+* Loading of absolute urls (eg inject jQuery or underscore)
 * Dependency injection into the module's callback
 * Assign any resource to an injected variable, or just download it
-* Any resource can be set to block any subsequent dependencies
+* Any resource can be set to block downloading of subsequent dependencies
 * Multiple module definitions into one file
 * All modules can be assigned to a public namespace, or kept internally
 * If assigned to public namespace any resource can be accessed from anywhere, so bypassing the dependency injection. Not necessarily recommended
@@ -32,10 +32,23 @@ Features:
 * A module's factory can be a function, or any other objects such as object literals, strings, arrays, numbers
 * Bootstrap can be configured by editing its source file, assigning a config to a variable before executing bootstrap, or calling bootstrap with a config after it has executed  
 * Any global variables created can have customized names.
-* Code is commented fairly extensively and is only 700 lines with comments, 7k minified
+* Code is commented fairly extensively and less than 1000 lines
 * If you want to know what's happening set verbose level.
-* Set optional callbacks for when all resources have loaded, or for when the callbacks are about to be executed 
 * Force a resource to be downloaded either as js, css or data 
+
+Future possible features: 
+* minimal version
+* production mode where all the files are concatenated in one or more
+  bundles and uglified (gzipped?) tied in with a minimal bootstrap
+  where the html doesn't need to change. Offering the files needed for
+  download. All this using a console command from the
+  browser 
+* External loader plugins instead of internal
+* Injecting modules conforming to amd (eg underscore)
+* AMD compliance
+* Better test suites
+* Better integration with dom events..
+* Set optional callbacks for when all resources have loaded, or for when the callbacks are about to be executed 
 
 Example
 ------

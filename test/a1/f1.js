@@ -1,8 +1,8 @@
 console.log("-----browser executing a1/f1 file");
 this.nmodules += 3;
 define(
-  {
-    inject: ['a1/f1#foo'],
+  { 
+    inject: ['a1/f1#foo', 'a1/b1/f1'],
     factory: function(a1f1foo) 
     {  console.log(this, "executing a1/f1 callback");
       describe("In a1/f1" , function() {

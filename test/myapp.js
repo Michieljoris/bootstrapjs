@@ -114,7 +114,7 @@ define(
     tag: 'foo',	    
     // load: ['data!http://code.jquery.com/jquery-1.8.1.min.js'],
     // inject: ['a1/f1', 'a1/f1#foo', 'a1/f3'],
-    // inject: ['a1/f1'],
+    inject: ['a1/f1'],
     factory: function()  {
       console.log(this,'executing myappfoo callback');
       describe("In myappfoo", function() {

@@ -21,6 +21,8 @@
 // finished loading everything, including the modules.
 //* once bootstrap has run at least once, it knows what files to download, so you could hardwire them, insert
 // them all at once, and have them load parallel. But in dynamic mode you can easily adjust dependencies. 
+//* make a index.html that links to a number of testpages, one with basic tests, one that correctly fails, one with
+// very complicated interdependencies etc...
 // 
 //Notes:
 //1. To load non-module files in a certain order, concatenate them into one js file, insert them directly
@@ -31,6 +33,8 @@
 // indirectly requires the first module cannot use any public api of the first module upon invocation
 // of the callback, since the callback of the first module has not been called yet at that moment. 
 // However after this has happened (the callback of the first module) the second module can use it again.
+// At the moment bootstrap gives an error and halts. You could when you encounter a circular dependency 
+// just declare the dependency met, and continue. You would end up in the situation just described..
 
 //3. To concatenate all the files together you would have to insert statements between the concatenated files,
 //such as: setfolderpath(pathToFolderFileUsedToBeIn), so that when the defines get executed bootstrapjs knows
@@ -165,7 +169,7 @@
      //internal vars
      resources, definers, dependencies,
      definers_called, requests_pending, timeouts_pending, 
-     blocking, depstack, 
+     blocking, depstack, maindep, error,
      
      //returns a timestamp in ms without arguments,
      timeStamp = (function () {
@@ -239,12 +243,9 @@
        }
        else {
 	 log(I,"Loading first javascript file: " + main + ".js");
-	 requestResource(parseDependencyId(main),
-	 		 {  exOrder: 0,
-	 		    requirers: [],
-	 		    dependencies: [main]
-	 		 }
-	 		);
+	 maindep = parseDependencyId(main);
+	 maindep.exeOrder = 0;
+	 requestResource(maindep);
 	 //after timeOut seconds timedOut get called which checks whether all scripts and resources have been loaded
 	 //and gives an error messages if they are not.
 	 setTimeout(timedOut, timeOut*1000);
@@ -255,17 +256,27 @@
      //called after timeOut seconds. Checks if all requested resources have actually been loaded.
      function timedOut() {
        var noresponse = [];
-       log(D, 'dependencies: ', dependencies);
-       log(D, 'requests pending', requests_pending);
-       log(D, 'timeouts pending', timeouts_pending);
+       if (requests_pending) log(D, 'requests pending', requests_pending);
+       if (timeouts_pending) log(D, 'timeouts pending', timeouts_pending);
        for (var d in dependencies)
 	 if (dependencies[d].resource.status !== 'loaded') {
-	   noresponse.push(dependencies[d].id); 
+	   noresponse.push(dependencies[d]); 
+	 }
+       if (noresponse.length > 0) {
+	 log(E,"Timed out. Unloaded dependencies:");
+	 noresponse.forEach(function(r) {
+			      log(E,r.id); }); } 
+       noresponse = [];
+       for (d in dependencies)
+	 if (!dependencies[d].met && dependencies[d].requirers.length > 0) {
+	   noresponse.push(dependencies[d]); 
 	 }
        if (noresponse.length > 0) {
 	 log(E,"Timed out. Unresolved dependencies:");
 	 noresponse.forEach(function(r) {
-			      log(E,"  " + r.url); }); } }
+			      log(E,r.id); }); } 
+       executeLater();
+}
      
      //------------------------------------------------------------ 
      //when given a path of a/b/c and a ns of base, object base.a.b.c is returned, creating
@@ -361,6 +372,7 @@
      //called immediately by the browser after script is loaded and then executed
      //beginning of thread
      function resourceLoaded(dependency) {
+       if (error) return; 
        requests_pending-= 1;
        var res = dependency.resource;
        //bookkeeping
@@ -403,6 +415,7 @@
      //and try to execute any callback
      //continued from resourceLoaded, or async called from resolveDeps, 
      function processDependency(dependency) {
+       if (error) return; 
        log(I, '*********processing dependency ' + dependency.id);
        //see what else this dependency is going to need...
        resolveDeps(dependency); 
@@ -415,6 +428,7 @@
 	 dependency.value = getObject(namespace, dependency.namespace);
 	 dependency.value.mytest='working';
        }
+       setExeOrder(dependency);
 	 //and execute the callback if possible..
 	 executeNow(dependency);
      }       
@@ -436,7 +450,6 @@
      
      //------------------------------------------------------------ 
      //tie the definer to the dependency if tags match, otherwise make new dependencies, 
-     //received as a bonus...
      function tieInDefiner(dependency, definer) {
        dependency.definer = definer; 
        definer.dependency = dependency;
@@ -447,10 +460,35 @@
        definers[definer.id]=definer;  
      } 
      
-     function setExeOrder() {
+    //-------------------------------- 
      //do a depth-first search for all paths to the main node, setting exeOrders on the way  
-     }
-     
+     function setExeOrder(dependency) {
+       var origin = dependency.id;
+       var chain = [];
+       function flowdown(indent, dependency, exeOrder) {
+	 // log(, indent + 'Setting dependency ' + dependency.id + ' to ' + exeOrder);
+	 chain.push(dependency.id);
+	 dependency.exeOrder = exeOrder;
+	 dependency.requirers.forEach(
+	   function(dep) {
+	     if (exeOrder > 100) { log(E, 'looping in  setExeOrder'); return; }
+	     if (dep === dependency) return;
+	     if (dep.id === origin) {
+	       log(E, 'Cyclic dependency. ');
+	       for (var id in chain) log(E, chain[id] + ' requires -->');
+	       log(E, dep.id);
+	       error = true;
+	       throw("Halting");
+	       return;
+	     }
+	     exeOrder = flowdown(indent + ' ', dep, exeOrder+1);
+	     });
+	 chain.pop();
+	 return exeOrder; 
+	 }
+       flowdown('', dependency, maindep.exeOrder);
+       }
+       
      //------------------------------------------------------------ 
      //make more requests for resources, depending on the modules' load and inject arrays
      function resolveDeps(dependency) {
@@ -543,7 +581,7 @@
 	   dep = dependencies[dep];
 	   // log(D,'def=' , def);
 	   log(I,dep.id + " is needed in " +  
-	       dep.requirers.map(function(req) { return req.id;}));
+	       dep.requirers.map(function(req) { return req.resource.url + (req.tag ? '#' + req.tag: '');}));
 	   // def.dependency.requirers.forEach( //array
 	   //   function (req) {
 	   //     // log(D,'req=', req);
@@ -561,15 +599,20 @@
      //so that their dependencies are all met
      function executeLater() {
        log(I,'Executing callbacks:');
-       var sortedDefs = [];
+       var sortedDeps = [];
        //sort all definers according to execution order
-       for (var d in definers) sortedDefs.push(definers[d]);
-       sortedDefs.sort(
-	 function (a, b) { return a.exOrder > b.exOrder ? 1 : -1; });
+       Object.keys(dependencies).forEach(
+	 function(dep) {
+	   dep = dependencies[dep];
+	   if (dep.definer && dep.requirers.length>0) sortedDeps.push(dep);
+	 });
+       sortedDeps.sort(
+	 function (a, b) { return a.exeOrder > b.exeOrder ? 1 : -1; });
        //execute all definers' callbacks, or assign the factory directy to its namespace
-       sortedDefs.forEach(
-	 function (def) { 
-	   if (typeof def.factory === 'function') executeCallback(def);
+       sortedDeps.forEach(
+	 function (dep) { 
+	   // if (typeof def.factory === 'function') executeCallback(def);
+	   log(D, dep.id, dep.exeOrder, dep);
 	   // else getObject(namespace, def.dependency.namespace, def.factory); 
 	 });
      } 
