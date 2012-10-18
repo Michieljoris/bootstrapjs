@@ -1,6 +1,8 @@
 "use strict";
 // TODO
 
+//*move these notes to a org/mm file
+//* use arbor.js to visualize the dependency relationships...
 //http://jsfiddle.net/NvMEu/5/
 // this is a link for a method of having a callback on load of css, copy of it see the bottom of this file
 // *make a minimal version (strip out console, executeLater/executeASAP and more?)
@@ -150,7 +152,10 @@
        
        //-----onLoaded 
        // Gets called when all files are loaded and all callbacks executed
-       onLoaded: onLoaded_native
+       onLoaded: onLoaded_native,
+       
+       //-------testing
+       testing: true
      },
      
      //----initHook [string]
@@ -169,7 +174,7 @@
      //internal vars
      resources, definers, dependencies,
      definers_called, requests_pending, timeouts_pending, 
-     blocking, depstack, maindep, error,
+     blocking, depstack, maindep, error, testing,
      
      //returns a timestamp in ms without arguments,
      timeStamp = (function () {
@@ -200,7 +205,8 @@
        //base object to assign our factories to
        namespace = namespace ? getObject(global, namespace) : null;
        
-       pathPrefix = config.pathPrefix || default_config.pathPrefix;
+       pathPrefix = typeof config.pathPrefix === 'undefined' ?  
+	 default_config.pathPrefix : config.pathPrefix;
        main = config.main || default_config.main;
        scriptInsertionLocation = config.scriptInsertionLocation || default_config.scriptInsertionLocation;
        insertionLocation = document.getElementsByTagName(scriptInsertionLocation)[0];
@@ -213,6 +219,7 @@
        onExecute = config.onExecute || default_config.onExecute;
        onLoaded = config.onLoaded || default_config.onLoaded;
        executeASAP = onExecute ? false : true;
+       testing = typeof config.testing === 'undefined' ? default_config.testing : config.testing;
        //make sure every path ends with a slash 
        for (var p in paths) 
 	 if (paths[p][paths[p].length-1] !== '/')
@@ -275,7 +282,7 @@
 	 log(E,"Timed out. Unresolved dependencies:");
 	 noresponse.forEach(function(r) {
 			      log(E,r.id); }); } 
-       executeLater();
+       //executeLater();
 }
      
      //------------------------------------------------------------ 
@@ -426,7 +433,6 @@
        case 'css' : break; 
        default: 
 	 dependency.value = getObject(namespace, dependency.namespace);
-	 dependency.value.mytest='working';
        }
        setExeOrder(dependency);
 	 //and execute the callback if possible..
@@ -631,8 +637,8 @@
 				    log(W,'Warning: injecting undefined (' + d.id + ') into ' + dep.id ); });
        
        var ret = dep.definer.factory.apply(dep.value, depobjs);
-       // if (ret)  dep.value = getObject(namespace, dep.namespace, ret); 
-       if (ret)  dep.value = ret;
+       if (ret)  dep.value = getObject(namespace, dep.namespace, ret); 
+       // if (ret)  dep.value = ret;
        // else dep.value = getObject(namespace, dep.namespace, self);
        // if (namespace) getObject(namespace, dep.namespace, dep.value);
      }
@@ -734,7 +740,7 @@
        // 		    });
        // 	       });  
        
-       execJasmine();
+       if (testing) execJasmine();
        console.debug('definers', definers, 'dependencies', dependencies,'resources', resources); 
        log(I, "THE END THE END THE END THE END THE END THE END THE END THE END THE END THE END ");
      }

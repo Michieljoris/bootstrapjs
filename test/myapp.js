@@ -17,17 +17,21 @@ define(
 	     ,'myapp#booleanfactory'
 	     ,'data!test.js'
 	     ,'runtest.js'
+	     ,'myapp#ret_in_ns'
 	    ],
     factory: function(a1f1, myappfoo, a1f1foo, data, mypathf1, 
 		      myappstringfact, myappnumberfact, myappobjectfact, myappbooleanfact
-		      ,jsdata, jsdata2
+		      ,jsdata, jsdata2, ret_in_ns
 		     )  {
 		       console.log(this,'executing myapp callback');
 		       describe("In myapp", function() {
       				  it("this is defined", function() {
       				       expect(this).toBeDefined();
       				     });
-				  it("a1/f1 is exported by returning an object", function() {
+      				  it("exported values using return are in the namespace", function() {
+      				       expect(module.myapp.ret_in_ns.name).toEqual('ret_in_ns');
+      				     });
+				  it("a1/f1 is exported by assigning to this", function() {
 				       expect(a1f1.name).toBe('a1f1');
 				     });
 				  it("loading of module in same file", function() {
@@ -139,3 +143,18 @@ define(
 
 
 
+define(
+  {
+    tag: 'ret_in_ns',	    
+    factory: function()  {
+      console.log(this,'executing ret_in_ns callback');
+      describe("In ret_in_ns", function() {
+      		 it("this is defined", function() {
+      		      expect(this).toBeDefined();
+      		    });
+	       });
+      return {
+	name: 'ret_in_ns'
+      };
+    }
+  });

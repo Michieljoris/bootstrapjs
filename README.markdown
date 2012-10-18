@@ -1,5 +1,5 @@
 
-DO NOT USE IN DEVELOPMENT!!!!!
+Not ready for practical use yet..
 ============
 Still testing..
 Need to add a lot more tests.
@@ -37,18 +37,18 @@ Features:
 * Force a resource to be downloaded either as js, css or data 
 
 Future possible features: 
-* minimal version
 * production mode where all the files are concatenated in one or more
   bundles and uglified (gzipped?) tied in with a minimal bootstrap
-  where the html doesn't need to change. Offering the files needed for
-  download. All this using a console command from the
-  browser 
+  where the html doesn't need to change. 
 * External loader plugins instead of internal
 * Injecting modules conforming to amd (eg underscore)
+* Loading CommonJS modules (with cjs plugin)
 * AMD compliance
 * Better test suites
 * Better integration with dom events..
-* Set optional callbacks for when all resources have loaded, or for when the callbacks are about to be executed 
+* Set optional callbacks for when all resources have loaded, or for
+  when the callbacks are about to be executed 
+* Optional callback for onError  
 
 Example
 ------

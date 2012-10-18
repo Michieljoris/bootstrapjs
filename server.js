@@ -3,6 +3,9 @@ http = require("http"),
 url = require("url"),
 path = require("path"),
 fs = require("fs");
+
+var ipaddr  = process.env.OPENSHIFT_INTERNAL_IP || '127.0.0.1';
+var port    = process.env.OPENSHIFT_INTERNAL_PORT || 8080;
 http.createServer(
     function(request, response) 
     {
@@ -22,6 +25,8 @@ http.createServer(
     		    return;
     		  };
     		  sys.puts('Serving file ' + filename);
+		  var GMTdate = fs.statSync(filename).mtime;
+		  sys.put(GMTdate);
     		  fs.readFile(filename, "binary", function(err, file) {
     				if(err) {
     				  response.writeHead(500, {"Content-Type": "text/plain"});
@@ -31,27 +36,27 @@ http.createServer(
     				}
 				if (path.extname(filename)==".js")
     				  setTimeout(function() {
-    					       response.writeHead(200, {"Content-Type": "application/x-javascript"});
+    					       response.writeHead(200, {"Content-Type": "application/x-javascript", 'last-modified': GMTdate});
     					       response.write(file, "binary");
     					       response.end();
 					     }, delay);
 				else
 				  if (path.extname(filename)==".css")
     				    setTimeout(function() {
-    						 response.writeHead(200, {"Content-Type": "text/css"});
+    					        response.writeHead(200, {"Content-Type": "text/css", 'last-modified': GMTdate});
     						 response.write(file, "binary");
     						 response.end();
 					       }, delay);
 				else {
 				  // console.log("writing out" + filename);
-    				  response.writeHead(200);
+    				  response.writeHead(200, {'last-modified':GMTdate});
     				  response.write(file, "binary");
     				  response.end();
 				  
 				}					
     			      });
 		});
-    }).listen(9080);
+    }).listen(port,  ipaddr);
 
 
 sys.puts("Server started on 9080");
