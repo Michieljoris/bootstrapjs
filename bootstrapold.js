@@ -1,7 +1,4 @@
-/*global jasmine:false bootstrap:false */
-/*jshint strict:true unused:true smarttabs:true eqeqeq:true immed: true undef:true*/
-/*jshint maxparams:5 maxcomplexity:9 maxlen:190 devel:true*/
-
+"use strict";
 // TODO
 
 //*move these notes to a org/mm file
@@ -14,8 +11,7 @@
 // executeLater mode, and disable the loadResource mechanism.  
 // *Maybe load js files in stages? Or all together? Or before the html load? Or after?
 //* replace executelater/asap with dom ready events or other events, to be inserted into the dependency lists?
-//* make the loaders plugins external to this file and comply the amd spec a bit more, advantage is that this
-//file becomes smaller, more custom loaders could be added easily, and also used as standalone loaders in the modules. 
+//* make the loaders plugins external to this file and comply the amd spec a bit more, advantage is that this file becomes smaller, more custom loaders could be added easily, and also used as standalone loaders in the modules. 
 // Disadvantage is that there are more network requests, one for every loader, and that the bootstrap code
 // would have to be modified for this to accomodate loading dependencies for loading dependencies..
 //*have an amd! loader, it would conform to the amd spec for defining modules, so that for example we can load underscore.
@@ -47,8 +43,7 @@
 //in what namespace to put the defined factories, ofcourse all the load directives would become superfluous 
 //because they don't have to be loadedjanymore by bootstrap. The inject directive becomes just an instruction 
 //what objects to insert, not what files to load anymore. You can concatenate them in any order, bootstrap would 
-//still control the order of the execution of the callbacks, though you might might want to put the non bootstrap
-//ffiles first. You could set it up so that just before bootstrap executes the callbacks, it would check wther all
+//still control the order of the execution of the callbacks, though you might might want to put the non bootstrap ffiles first. You could set it up so that just before bootstrap executes the callbacks, it would check wther all
 //the dependency objects are there, and if not it would again try to download them.
 
 //4 I talk interchangeably about defines and modules throughout this source code, however
@@ -93,18 +88,10 @@
 
 //Bootstrap
 (function(global)
- { "use strict";
-   //VERSION = '0.4',
-   //DATE = '26/12/12',
-   
-   //debug variables that watch out for infinite loops shouldn't
-   //happen, but till I have full faith in the algorythm I rather have
-   //an error than a hanging browser. Increase them if you get an error
-   var exeOrderMax = 400;
-   var backtrackMax = 50;
-   var biggestExeOrder = 0;
-   
-   var default_config = {
+ {   var 
+     VERSION = '0.3',
+     DATE = '19/9/12',
+     default_config = {
        //-----hook
        //Name of the global function that modularizes a file by defining other files to load and taking a an optional 
        // callback or other object that defines the functionality of the module. 
@@ -129,7 +116,7 @@
        //a way to map namespaces to directories. This way you can refer to modules defined in 
        //separate rootfolders by prefixing the object name with its subsitution
        paths: {
-	   mypath: 'a1/b1'
+	 mypath: 'a1/b1'
        },
        
        //-----main     
@@ -169,44 +156,44 @@
        
        //-------testing
        testing: true
-   },
+     },
      
-   //----initHook [string]
-   //the init function is added to the hook under this name
-   //falsy will result in not anything being added, and will start
-   //the  bootstrap process by itself, otherwise calling hook[initHook]()
-   //will do this, with an optional config object as argument.  
-   initHook = null,
+     //----initHook [string]
+     //the init function is added to the hook under this name
+     //falsy will result in not anything being added, and will start
+     //the  bootstrap process by itself, otherwise calling hook[initHook]()
+     //will do this, with an optional config object as argument.  
+     initHook = null,
      
-   //config vars    
-   namespace, pathPrefix ,main, scriptInsertionLocation, 
-       hook, timeOut, verbosity, insertionLocation, 
-       paths, executeASAP, 
-   onExecute, onLoaded,
+     //config vars    
+     namespace, pathPrefix ,main, scriptInsertionLocation, 
+     hook, timeOut, verbosity, insertionLocation, 
+     paths, executeASAP, 
+     onExecute, onLoaded,
      
-   //internal vars
-   resources, definers, dependencies,
-       definers_called, requests_pending, timeouts_pending, 
-       blocking, depstack, maindep, error, testing,
+     //internal vars
+     resources, definers, dependencies,
+     definers_called, requests_pending, timeouts_pending, 
+     blocking, depstack, maindep, error, testing,
      
-   //returns a timestamp in ms without arguments,
-   timeStamp = (function () {
-	   var bootstart = new Date();
-	   return function () { return new Date() - bootstart;};})(),
-   //log with levels  eg: log(W,"bla");
-   E=1, W=2, I=3, D=4,
-   levels = ['none', 'error', 'warn', 'info', 'debug'];
+     //returns a timestamp in ms without arguments,
+     timeStamp = (function () {
+			var bootstart = new Date();
+			return function () { return new Date() - bootstart;};})(),
+     //log with levels  eg: log(W,"bla");
+     E=1, W=2, I=3, D=4,
+     levels = ['none', 'error', 'warn', 'info', 'debug'];
      
-   //------------------------------------------------------------ 
-   function log() {
+     //------------------------------------------------------------ 
+     function log() {
        var args = Array.prototype.slice.call(arguments);
        var level = args[0];
        args[0] = timeStamp();
        if (level <= verbosity) console[levels[level]].apply(console, args);
-   }
+     }
      
-   //------------------------------------------------------------ 
-   function init(config) {
+     //------------------------------------------------------------ 
+     function init(config) {
        //make sure all config vars have at least some default value
        if (!config) config = default_config;
        
@@ -219,7 +206,7 @@
        namespace = namespace ? getObject(global, namespace) : null;
        
        pathPrefix = typeof config.pathPrefix === 'undefined' ?  
-	   default_config.pathPrefix : config.pathPrefix;
+	 default_config.pathPrefix : config.pathPrefix;
        main = config.main || default_config.main;
        scriptInsertionLocation = config.scriptInsertionLocation || default_config.scriptInsertionLocation;
        insertionLocation = document.getElementsByTagName(scriptInsertionLocation)[0];
@@ -235,8 +222,8 @@
        testing = typeof config.testing === 'undefined' ? default_config.testing : config.testing;
        //make sure every path ends with a slash 
        for (var p in paths) 
-	   if (paths[p][paths[p].length-1] !== '/')
-	       paths[p] += '/'; 
+	 if (paths[p][paths[p].length-1] !== '/')
+	   paths[p] += '/'; 
        if (pathPrefix[pathPrefix.length-1] !== '/') pathPrefix += '/';
        
        //initialize internal vars 
@@ -257,72 +244,74 @@
        
        //start off bootstrap
        if (initHook && !global[hook][initHook] ) {
-	   global[hook][initHook] = init;
-	   log(I,"Finished the bootstrap script, start loading the scripts with " + 
-	       hook + ".init({...config...})");
+	 global[hook][initHook] = init;
+	 log(I,"Finished the bootstrap script, start loading the scripts with " + 
+		hook + ".init({...config...})");
        }
        else {
-	   log(I,"Loading first javascript file: " + main + ".js");
-	   maindep = parseDependencyId(main);
-	   maindep.exeOrder = 0;
-	   requestResource(maindep);
-	   //after timeOut seconds timedOut get called which checks whether all scripts and resources have been loaded
-	   //and gives an error messages if they are not.
-	   setTimeout(timedOut, timeOut*1000);
+	 log(I,"Loading first javascript file: " + main + ".js");
+	 maindep = parseDependencyId(main);
+	 maindep.exeOrder = 0;
+	 requestResource(maindep);
+	 //after timeOut seconds timedOut get called which checks whether all scripts and resources have been loaded
+	 //and gives an error messages if they are not.
+	 setTimeout(timedOut, timeOut*1000);
        }
-   }
+     };
      
-   //------------------------------------------------------------ 
-   //called after timeOut seconds. Checks if all requested resources have actually been loaded.
-   function timedOut() {
+     //------------------------------------------------------------ 
+     //called after timeOut seconds. Checks if all requested resources have actually been loaded.
+     function timedOut() {
        var noresponse = [];
-           if (requests_pending) log(D, 'requests pending', requests_pending);
+       if (requests_pending) log(D, 'requests pending', requests_pending);
        if (timeouts_pending) log(D, 'timeouts pending', timeouts_pending);
        for (var d in dependencies)
-	   if (dependencies[d].resource.status !== 'loaded') {
-	       noresponse.push(dependencies[d]); 
-	   }
+	 if (dependencies[d].resource.status !== 'loaded') {
+	   noresponse.push(dependencies[d]); 
+	 }
        if (noresponse.length > 0) {
-	   log(E,"Timed out. Unloaded dependencies:");
-	   noresponse.forEach(function(r) {
-	       log(E,r.id); }); } 
+	 log(E,"Timed out. Unloaded dependencies:");
+	 noresponse.forEach(function(r) {
+			      log(E,r.id); }); } 
        noresponse = [];
        for (d in dependencies)
-	   if (!dependencies[d].met && dependencies[d].requirers.length > 0) {
-	       noresponse.push(dependencies[d]); 
-	   }
+	 if (!dependencies[d].met && dependencies[d].requirers.length > 0) {
+	   noresponse.push(dependencies[d]); 
+	 }
        if (noresponse.length > 0) {
-	   log(E,"Timed out. Unresolved dependencies:");
-	   noresponse.forEach(function(r) {
-	       log(E,r.id); }); } 
-       
-   }
+	 log(E,"Timed out. Unresolved dependencies:");
+	 noresponse.forEach(function(r) {
+			      log(E,r.id); }); } 
+       //executeLater();
+}
      
-   //------------------------------------------------------------ 
-   //when given a path of a/b/c and a ns of base, object base.a.b.c is returned, creating
-   //the objects that don't exist yet, and assigning value to the end of the path (c)
-   function getObject(ns, path, value) {
+     //------------------------------------------------------------ 
+     //when given a path of a/b/c and a ns of base, object base.a.b.c is returned, creating
+     //the objects that don't exist yet, and assigning value to the end of the path (c)
+     function getObject(ns, path, value) {
        if (!namespace) return Object.create(null);
        // log(E, 'making namespace for ', path);
        if (path) {
-	       var parts = path.split('/');
-	   for (var i = 0; i < parts.length; i++) {
-	       if (parts[i]) {
-	           if (value && i===parts.length-1) {
-	               ns[parts[i]] = value; 
-	           }
-	           else if (ns[parts[i]] === undefined) {
-	               // ns[parts[i]] = {}; //Object.create(null);
-	               ns[parts[i]] = Object.create(null);
-	           }
-	           ns = ns[parts[i]]; } } }
+	 var parts = path.split('/');
+	 for (var i = 0; i < parts.length; i++) {
+	   if (parts[i]) {
+	     if (value && i==parts.length-1) {
+	       ns[parts[i]] = value; 
+	       
+	       
+	     }
+	     else if (ns[parts[i]] === undefined) {
+	       // ns[parts[i]] = {}; //Object.create(null);
+	       ns[parts[i]] = Object.create(null);
+	     }
+	     ns = ns[parts[i]]; } } };
        return ns; }
      
-   //------------------------------------------------------------ 
-   //This inserts a script or css element into the dom, which causes an 
-   //async load of the file, or does an xhr request for a file.  For both
-   //onload events resourceLoaded is eventually called.
-   function requestResource(dependency) {
+     //------------------------------------------------------------ 
+     //This inserts a script or css element into the dom, which causes an 
+     //async load of the file, or does an xhr request for a file.  For both
+     //onload events resourceLoaded is eventually called.
+     function requestResource(dependency) {
        var res = dependency.resource;
        requests_pending += 1;
        res.status = 'requested'; 
@@ -334,32 +323,32 @@
 	 else log(I,"Inserting css: " + res.url);
 	 //call one of the loaders defined at the bottom of this file
 	 loaders[res.loader].load(
-	     res.url, 
-	     { toUrl: function (url) { return url; }},
-	     //callback for xhr and css
-	     function (result) { 
-	         //we only care about the data callback
-	         // if (res.loader === 'data')  {
-	         //pop the data in the namespace tree 
-	         // log(D, 'popping result in namespace..', res.namespace, result);
-	         // if (res.isAbs) namespace[res.url] = result;
-	         // else dependency.value = getObject(namespace, dependency.namespace, result);
-	         dependency.value = result; 
-	         if (!result && res.loader === 'data') log(W, 'empty response from xhr request');
-	         if (!result && res.loader === 'css') log(W, 'empty response from css link insertion ???');
-	         // }
-	         log(D, 'calling resourceLoaded from css/xhr');
-	         resourceLoaded(dependency);
-	     },
-	     {/*config*/}); }
+	   res.url, 
+	   { toUrl: function (url) { return url; }},
+	   //callback for xhr and css
+	   function (result) { 
+	     //we only care about the data callback
+	     // if (res.loader === 'data')  {
+	       //pop the data in the namespace tree 
+	       // log(D, 'popping result in namespace..', res.namespace, result);
+	       // if (res.isAbs) namespace[res.url] = result;
+	       // else dependency.value = getObject(namespace, dependency.namespace, result);
+	       dependency.value = result; 
+	       if (!result && res.loader === 'data') log(W, 'empty response from xhr request');
+	       if (!result && res.loader === 'css') log(W, 'empty response from css link insertion ???');
+	     // }
+	     log(D, 'calling resourceLoaded from css/xhr');
+	     resourceLoaded(dependency);
+	   },
+	   {/*config*/}); }
        //insert javascript tag
        else { var script_element = document.createElement('script');
 	      script_element.src = res.url;
 	      script_element.onloadDone = false;
 	      script_element.defer = true;
 	      script_element.onload = function() {
-		  script_element.onloadDone=true;
-		  resourceLoaded(dependency);
+		script_element.onloadDone=true;
+		resourceLoaded(dependency);
 	      };
 	      // // IE 6 & 7
 	      // script_element.onreadystatechange = function() {
@@ -371,25 +360,25 @@
 	      insertionLocation.appendChild(script_element);
 	      log(I, 'Inserting script tag for: '+ res.url);
 	      if (res.blocks) log(I,'Blocking any further script injections till this one has run'); }
-   }
+     }
 
-   //------------------------------------------------------------ 
-   //the only global to leak out of this closure, under a name set in the configuration 
-   //these functions get executed right after a js file has been loaded by the browser
-   //we collect the arguments to these calls here. To conform more to the AMD specs
-   //you would adapt this function, by analyzing the arguments and creating a standard
-   //definer object {tag:.., load:.., inject:.., factory:..} to add to definers_called 
-   function define(definer) { 
+     //------------------------------------------------------------ 
+     //the only global to leak out of this closure, under a name set in the configuration 
+     //these functions get executed right after a js file has been loaded by the browser
+     //we collect the arguments to these calls here. To conform more to the AMD specs
+     //you would adapt this function, by analyzing the arguments and creating a standard
+     //definer object {tag:.., load:.., inject:.., factory:..} to add to definers_called 
+     function define(definer) { 
        //fix up this new definer
        if (!definer.tag) definer.tag = "";
        if (!definer.load) definer.load = [];
        if (!definer.inject) definer.inject = [];
        definers_called.push(definer); }
      
-   //------------------------------------------------------------ 
-   //called immediately by the browser after script is loaded and then executed
-   //beginning of thread
-   function resourceLoaded(dependency) {
+     //------------------------------------------------------------ 
+     //called immediately by the browser after script is loaded and then executed
+     //beginning of thread
+     function resourceLoaded(dependency) {
        if (error) return; 
        requests_pending-= 1;
        var res = dependency.resource;
@@ -401,73 +390,73 @@
        //definers in them we check for the loader type (only dependencies without an extension
        //are interpreted as bootstrap files), otherwise you can't load files that happen to do a
        //define call
-           if (res.loader === 'bootstrap')  
+       if (res.loader === 'bootstrap')  
        { res.definers =  definers_called;
 	 var resolved_dependencies = [];
 	 res.definers.forEach(function (def) { 
-	     var depId = dependency.resource.loader + '!' + 
-                 dependency.resource.url + '#' + def.tag;
-	     if (!dependencies[depId]) {
-		 log(I, 'Bonus definer found: ' + depId);
-		 dependencies[depId] = { id: depId, requirers: [],
-					 isBonus: true,
-					 resource: dependency.resource,
-					 tag: def.tag,
-					 namespace:  dependency.resource.namespace + 
-					 (def.tag ? '/' + def.tag : ''),
-					 dependencies: [] }; }
-	     else {
-		 log(I,'New definer added to dependency ' + depId);
-		 resolved_dependencies.push(dependencies[depId]);
-	     }
-	     tieInDefiner(dependencies[depId], def); } ); 
+				var depId = dependency.resource.loader + '!' + 
+       				  dependency.resource.url + '#' + def.tag;
+				if (!dependencies[depId]) {
+				  log(I, 'Bonus definer found: ' + depId);
+				  dependencies[depId] = { id: depId, requirers: [],
+							  isBonus: true,
+							  resource: dependency.resource,
+							  tag: def.tag,
+							  namespace:  dependency.resource.namespace + 
+							  (def.tag ? '/' + def.tag : ''),
+							  dependencies: [] }; }
+				else {
+				  log(I,'New definer added to dependency ' + depId);
+				  resolved_dependencies.push(dependencies[depId]);
+				}
+				tieInDefiner(dependencies[depId], def); } ); 
 	 resolved_dependencies.forEach(function(dep) { processDependency(dep);});
        }
        else processDependency(dependency);
        definers_called=[]; //reset for the next script to come in
        endThread();
-   }
+     }
      
-   //---------------------------------------------------------
-   //this will try to resolve any further dependencies this dependency has
-   //and try to execute any callback
-   //continued from resourceLoaded, or async called from resolveDeps, 
-   function processDependency(dependency) {
+     //---------------------------------------------------------
+     //this will try to resolve any further dependencies this dependency has
+     //and try to execute any callback
+     //continued from resourceLoaded, or async called from resolveDeps, 
+     function processDependency(dependency) {
        if (error) return; 
        log(I, '*********processing dependency ' + dependency.id);
        //see what else this dependency is going to need...
        resolveDeps(dependency); 
        
        switch (dependency.resource.loader) {
-         case 'data':getObject(namespace, dependency.namespace, dependency.value); break;
-         case 'js': break;
-         case 'css' : break; 
+       case 'data':getObject(namespace, dependency.namespace, dependency.value); 
+       case 'js': ;
+       case 'css' : break; 
        default: 
-	   dependency.value = getObject(namespace, dependency.namespace);
+	 dependency.value = getObject(namespace, dependency.namespace);
        }
        setExeOrder(dependency);
-       //and execute the callback if possible..
-       executeNow(dependency);
-   }       
+	 //and execute the callback if possible..
+	 executeNow(dependency);
+     }       
      
-   function endThread() {
+    function endThread() {
        //now is the time to make any further requests for resources..
        if (depstack.length > 0) log(I, 'Finally, request queued dependencies'); 
        while (depstack.length > 0 && !blocking) {
-	   var dependency = depstack.shift();
-	   if (dependency.resource.blocks) blocking = true;
-	   requestResource(dependency); 
+	 var dependency = depstack.shift();
+	 if (dependency.resource.blocks) blocking = true;
+	 requestResource(dependency); 
        }
        //as long as there are still requests pending don't finalize
        if (requests_pending === 0 && timeouts_pending === 0) {
-	   finalize(); 
+	 finalize(); 
        }
-   }
-   //end of thread..
+     }
+     //end of thread..
      
-   //------------------------------------------------------------ 
-   //tie the definer to the dependency if tags match, otherwise make new dependencies, 
-   function tieInDefiner(dependency, definer) {
+     //------------------------------------------------------------ 
+     //tie the definer to the dependency if tags match, otherwise make new dependencies, 
+     function tieInDefiner(dependency, definer) {
        dependency.definer = definer; 
        definer.dependency = dependency;
        definer.id = dependency.resource.url + '#' + definer.tag;
@@ -475,187 +464,166 @@
        //the same tag, or no tag.
        if (definers[definer.id]) log(I,"Warning: redefining " + definer.id); 
        definers[definer.id]=definer;  
-   } 
+     } 
      
-   //-------------------------------- 
-   //do a depth-first search for all paths to the main node, setting exeOrders on the way  
-   function setExeOrder(dependency) {
+    //-------------------------------- 
+     //do a depth-first search for all paths to the main node, setting exeOrders on the way  
+     function setExeOrder(dependency) {
        var origin = dependency.id;
        var chain = [];
        function flowdown(indent, dependency, exeOrder) {
-	   // log(, indent + 'Setting dependency ' + dependency.id + ' to ' + exeOrder);
-	   chain.push(dependency.id);
-	   dependency.exeOrder = exeOrder;
-	   dependency.requirers.forEach(
-	       function(dep) {
-	           if (exeOrder > exeOrderMax) { log(E, 'looping in  setExeOrder'); return; }
-                   else {
-                       if (exeOrder >biggestExeOrder) biggestExeOrder = exeOrder;
-                   }
-	           if (dep === dependency) return;
-	           if (dep.id === origin) {
-	               log(E, 'Cyclic dependency. ');
-	               for (var id in chain) log(E, chain[id] + ' requires -->');
-	               log(E, dep.id);
-	               error = true;
-	               throw("Halting");
-	               // return;
-	           }
-	           exeOrder = flowdown(indent + ' ', dep, exeOrder+1);
-	       });
-	   chain.pop();
-	   return exeOrder; 
-       }
+	 // log(, indent + 'Setting dependency ' + dependency.id + ' to ' + exeOrder);
+	 chain.push(dependency.id);
+	 dependency.exeOrder = exeOrder;
+	 dependency.requirers.forEach(
+	   function(dep) {
+	     if (exeOrder > 100) { log(E, 'looping in  setExeOrder'); return; }
+	     if (dep === dependency) return;
+	     if (dep.id === origin) {
+	       log(E, 'Cyclic dependency. ');
+	       for (var id in chain) log(E, chain[id] + ' requires -->');
+	       log(E, dep.id);
+	       error = true;
+	       throw("Halting");
+	       return;
+	     }
+	     exeOrder = flowdown(indent + ' ', dep, exeOrder+1);
+	     });
+	 chain.pop();
+	 return exeOrder; 
+	 }
        flowdown('', dependency, maindep.exeOrder);
-   }
+       }
        
-   //------------------------------------------------------------ 
-   //make more requests for resources, depending on the modules' load and inject arrays
-   function resolveDeps(dependency) {
+     //------------------------------------------------------------ 
+     //make more requests for resources, depending on the modules' load and inject arrays
+     function resolveDeps(dependency) {
        function processDep(depId) {
-	   var dep_dependency = parseDependencyId(depId);
-	   dependency.dependencies.push(dep_dependency);
-	   dep_dependency.requirers.push(dependency); 
-	   if (dep_dependency.resource.status === 'new')   {
-               log(I,'queueing ' + dep_dependency.id );
-	       depstack.push(dep_dependency);
-	       dep_dependency.resource.status = 'queued'; }
-	   else {
-	       if (dep_dependency.resource.status === 'loaded') {
-	           log(I, 'The resource for this dependency has already been loaded: ' + dep_dependency.id  ); 
-	           if (dep_dependency.isBonus) {
-	               dep_dependency.isBonus = false;
-	               //make quasi browser callback, as if we just loaded this new definer
-	               //though it had come for free with a previous resourceLoad
-	               setTimeout(function() { timeouts_pending--;
-				               processDependency(dep_dependency); 
-				               endThread(); }, 0);
-	               timeouts_pending++;
-	               log(I, 'This is a bonus definer being activated.. ,setting callback'); 
-	           }
-	       } 
-	       else log(I,'this dependency is already queued: ' + dep_dependency.id);  
+	 var dep_dependency = parseDependencyId(depId);
+	 dependency.dependencies.push(dep_dependency);
+	 dep_dependency.requirers.push(dependency); 
+	 if (dep_dependency.resource.status === 'new')   {
+           log(I,'queueing ' + dep_dependency.id );
+	   depstack.push(dep_dependency);
+	   dep_dependency.resource.status = 'queued'; }
+	 else {
+	 if (dep_dependency.resource.status === 'loaded') {
+	   log(I, 'The resource for this dependency has already been loaded: ' + dep_dependency.id  ); 
+	   if (dep_dependency.isBonus) {
+	     dep_dependency.isBonus = false;
+	     //make quasi browser callback, as if we just loaded this new definer
+	     //though it had come for free with a previous resourceLoad
+	     setTimeout(function() { timeouts_pending--;
+				     processDependency(dep_dependency); 
+				     endThread(); }, 0);
+	     timeouts_pending++;
+	     log(I, 'This is a bonus definer being activated.. ,setting callback'); 
 	   }
+	 } 
+	 else log(I,'this dependency is already queued: ' + dep_dependency.id);  
+	 }
        }
        var definer = dependency.definer;
        if (definer) {
-	   log(I,'Resolving deps for ' + dependency.id);
-	   log(I, definer.load, definer.inject);
-	   definer.load.forEach(processDep);
-	   definer.inject.forEach(processDep); } 
-   }
+	 log(I,'Resolving deps for ' + dependency.id);
+	 log(I, definer.load, definer.inject);
+	 definer.load.forEach(processDep);
+	 definer.inject.forEach(processDep); } 
+       }
      
-   //------------------------------------------------------------ 
-   function executeNow(dependency) {
+     //------------------------------------------------------------ 
+     function executeNow(dependency) {
        if (!executeASAP) return;
        //function that, if all dependencies are met, executes the callback;
-       function testDeps(dep) {
-	   // if (dep.definer.factory && typeof dep.definer.factory === 'function')  
-	   // { 
+       function exe(dep) {
+	 if (dep.definer.factory && typeof dep.definer.factory === 'function')  
+	 { 
 	   if (dep.dependencies.every(function(e) { return e.met;}))
-	   { log(I,'All dependencies have been met for ' + dep.definer.id );
-	     // ' ,executing the callback');
-	     // executeCallback(dep);
+	   { log(I,'All dependencies have been met for ' + dep.definer.id +
+		 ' ,executing the callback');
+	     executeCallback(dep);
 	     return true; }
 	   else { log(I,"There are still dependencies missing for " + dep.definer.id);
 		  return false; } }     
-       // else return true; }
+	 else return true; } 	 
        
        dependency.met = true;
        if (dependency.resource.loader === 'bootstrap')  {
-	   log(I, 'Trying to execute callback of ' + dependency.id);
-	   var depdef = dependency.definer; 
-	   if (depdef) {
-	       dependency.met = testDeps(dependency); 
-               if (dependency.met) {
-                   if (depdef.factory) {
-                       if (typeof depdef.factory !== 'function')   {
-	                   dependency.value = depdef.factory;
-                       }
-	               else executeCallback(dependency);
-                       // dependency.met = exe(dependency); }
-                   }
-               }
-           } 
-	   else  {
-	       // log(E,(definer ? "Definer " + definer.id  : main) + 
-	       log(E,'One of ', dependency.requirers, 
-		   ' has asked for the dependency ' +  dependency.id + ' in the resource ' +
-		   dependency.resource.url + ', which has no matching definers.');
-	       dependency.met = false; }
-
-       }
+	 log(I, 'Trying to execute callback of ' + dependency.id);
+	 var depdef = dependency.definer; 
+	 if (depdef) {
+	   if (depdef.factory) {
+       	     if (typeof depdef.factory !== 'function')  
+	       // dependency.value = getObject(namespace, dependency.namespace, depdef.factory);
+	       dependency.value = depdef.factory;
+	     else dependency.met = exe(dependency); } } 
+	 else  {
+	   log(E,(definer ? "Definer " + definer.id  : main) + 
+		  ' has asked for the dependency ' +  dependency.id + ' in the resource ' +
+		  dependency.resource.url + ', which has no matching definers.' );
+	   dependency.met = false; } }
        var failsafe = 0;
        function backtrace(dep) {
-           dep.requirers.forEach(
-	       function(req) {
-	           if (req !== dep && testDeps(req)) {
-                       // log(I, 'Executing callback');
-                       if (!req.met && req.definer.factory) {
-                           if (typeof req.definer.factory !== 'function')   {
-	                       req.value = req.definer.factory;
-                           }
-	                   else executeCallback(req);
-                       }
-                       req.met = true;
-                       if (failsafe++ < backtrackMax)  backtrace(req); 
-		       else throw('Error: We were in long loop!!!!'); 
-		   } }); }
+       	 dep.requirers.forEach(
+	   function(req) {
+	     if (req !== dep && exe(req)) { req.met = true;
+       					    if (failsafe++ < 50)  backtrace(req); 
+					    else throw('Error: We were in long loop!!!!'); 
+					  } }); }
        //if we have a leaf, backtrace as far as you can!!!
        if (dependency.met) {
-	   log(I, 'Backtracking..');
-	   backtrace(dependency); 
-	   log(I, 'Backtracking done');
+	 log(I, 'Backtracking..');
+	 backtrace(dependency); 
+	 log(I, 'Backtracking done');
        }
-   } 
+} 
      
-   //------------------------------------------------------------ 
-   //make the apropriate connections, check for circular dependencies and execute the callbacks
-   function finalize() {
-       log(W,'Biggest Exe Order', biggestExeOrder);
+     //------------------------------------------------------------ 
+     //make the apropriate connections, check for circular dependencies and execute the callbacks
+     function finalize() {
        log(I,"Finished loading, finalizing:");
        Object.keys(dependencies).forEach(
-	   function (dep) {
-	       dep = dependencies[dep];
-	       // log(D,'def=' , def);
-	       log(I,dep.id + " is needed in " +  
-	           dep.requirers.map(function(req) { return req.resource.url + (req.tag ? '#' + req.tag: '');}));
-	       // def.dependency.requirers.forEach( //array
-	       //   function (req) {
-	       //     // log(D,'req=', req);
-	       //     if ( req.exOrder <  def.exOrder) 
-	       // 	 log(W,"Warning! Cyclic dependency: The objects imported from " + def.id +
-	       // 	     " might be undefined in " + req.id); }); 
-           });
+	 function (dep) {
+	   dep = dependencies[dep];
+	   // log(D,'def=' , def);
+	   log(I,dep.id + " is needed in " +  
+	       dep.requirers.map(function(req) { return req.resource.url + (req.tag ? '#' + req.tag: '');}));
+	   // def.dependency.requirers.forEach( //array
+	   //   function (req) {
+	   //     // log(D,'req=', req);
+	   //     if ( req.exOrder <  def.exOrder) 
+	   // 	 log(W,"Warning! Cyclic dependency: The objects imported from " + def.id +
+	   // 	     " might be undefined in " + req.id); }); 
+});
        //execute the callbacks
        if (!executeASAP) onExecute(executeLater);
        //by default this calls onLoaded_native, but can be reassigned in config
        onLoaded(); 
-       } 
+} 
      
-   //all the callbacks gathered during the loading phase get executed now in the right order,
-   //so that their dependencies are all met
-   function executeLater() {
+     //all the callbacks gathered during the loading phase get executed now in the right order,
+     //so that their dependencies are all met
+     function executeLater() {
        log(I,'Executing callbacks:');
        var sortedDeps = [];
        //sort all definers according to execution order
        Object.keys(dependencies).forEach(
-	   function(dep) {
-	       dep = dependencies[dep];
-	       if (dep.definer && dep.requirers.length>0) sortedDeps.push(dep);
-	   });
+	 function(dep) {
+	   dep = dependencies[dep];
+	   if (dep.definer && dep.requirers.length>0) sortedDeps.push(dep);
+	 });
        sortedDeps.sort(
-	   function (a, b) { return a.exeOrder > b.exeOrder ? 1 : -1; });
+	 function (a, b) { return a.exeOrder > b.exeOrder ? 1 : -1; });
        //execute all definers' callbacks, or assign the factory directy to its namespace
        sortedDeps.forEach(
-	   function (dep) { 
-	       // if (typeof def.factory === 'function') executeCallback(def);
-	       log(D, dep.id, dep.exeOrder, dep);
-	       // else getObject(namespace, def.dependency.namespace, def.factory); 
-	   });
-   } 
+	 function (dep) { 
+	   // if (typeof def.factory === 'function') executeCallback(def);
+	   log(D, dep.id, dep.exeOrder, dep);
+	   // else getObject(namespace, def.dependency.namespace, def.factory); 
+	 });
+     } 
 
-   function executeCallback(dep) {
+     function executeCallback(dep) {
        log(D, 'executing callback: ', dep.id);
        // var self = getObject(namespace, dep.namespace);
        var depobjs = []; 
@@ -663,24 +631,24 @@
        //previous calls to this function
        var l = dep.definer.load.length;
        dep.dependencies.slice(l).forEach(function (d) {
-	   // depobjs.push(getObject(namespace, dep.namespace));
-	   depobjs.push(d.value);
-	   if (d.value === undefined) 
-	       log(W,'Warning: injecting undefined (' + d.id + ') into ' + dep.id ); });
+				  // depobjs.push(getObject(namespace, dep.namespace));
+				  depobjs.push(d.value);
+				  if (d.value === undefined) 
+				    log(W,'Warning: injecting undefined (' + d.id + ') into ' + dep.id ); });
        
        var ret = dep.definer.factory.apply(dep.value, depobjs);
        if (ret)  dep.value = getObject(namespace, dep.namespace, ret); 
        // if (ret)  dep.value = ret;
        // else dep.value = getObject(namespace, dep.namespace, self);
        // if (namespace) getObject(namespace, dep.namespace, dep.value);
-   }
+     }
      
-   //pry dependency id apart, this should use regexp
-   //TODO preserve any parameter passing (?a=1&b='bla')
-   //format is: (loader!)(protocol:)url(.ext)(?parameters)(#tag)(|)
-   //TODO regex is: ([a-zA-Z]+!)([a-zA-Z]+:)[a-zA-Z/]+(\.[a-zA_Z])(?parameters)(#tag)(|) TOD
-   function parseDependencyId(id) {
-       // var originalId = id;
+     //pry dependency id apart, this should use regexp
+     //TODO preserve any parameter passing (?a=1&b='bla')
+     //format is: (loader!)(protocol:)url(.ext)(?parameters)(#tag)(|)
+     //TODO regex is: ([a-zA-Z]+!)([a-zA-Z]+:)[a-zA-Z/]+(\.[a-zA_Z])(?parameters)(#tag)(|) TOD
+     function parseDependencyId(id) {
+       var originalId = id;
        if (!id) log(W,"Empty dependency...");
        var blocks = false, url, loader,
        tag = "", resource, isAbs = false,
@@ -692,7 +660,7 @@
        if (id[id.length-1] === '|') {  blocks  = true;
 				       id = id.substring(0, id.length-1);  }
        //get the tag of the end of the id
-           var lastHash = id.lastIndexOf('#');
+       var lastHash = id.lastIndexOf('#');
        if (lastHash > -1) { tag = id.substring(lastHash+1);
 			    id = id.substring(0, lastHash);  }
        //deduce loader from either prefix or .ext
@@ -700,34 +668,34 @@
        var lastDot = id.lastIndexOf('.');
        var lastSlash =  id.lastIndexOf('/');
        if (lastDot>lastSlash) { 
-	   ext = id.substring(lastDot);
-	   id = id .substring(0, lastDot); }  
+	 ext = id.substring(lastDot);
+	 id = id .substring(0, lastDot); }  
        //then slice off any pre exclamation mark string
        var splitId = id.split("!");
-       if (splitId.length > 1 &&
-           (splitId[0] === 'js' || splitId[0] === 'css' || splitId[0] === 'data')
+       if (splitId.length > 1 
+	   && (splitId[0] === 'js' || splitId[0] === 'css' || splitId[0] === 'data')
 	  ) { loader = splitId[0];
 	      id = id.substring(id.indexOf('!') + 1);  }
        else loader = ext.slice(1);
        // else {if (ext) loader = id.substring(lastDot+1);  }
        //if neither were present, default to .js for relative paths, data for absolute paths
        if (!loader)  {
-	   if (!isAbs) { loader = 'bootstrap';
-		         ext = '.js';  }
-	   else loader = 'data';  }
+	 if (!isAbs) { loader = 'bootstrap';
+		       ext = '.js';  }
+	 else loader = 'data';  }
        //what's left of the id now is used as the namespace for any objects returned by this resource
-           //tag gets added to the namespace if a definer defined in the resource has a tag attr.
+       //tag gets added to the namespace if a definer defined in the resource has a tag attr.
        ns = id;
        if (loader === 'data') ns = ns + ext;
        //Modify relative urls: 
        if (!isAbs) {
-           //Create url by path substitution 
-	   var firstSlash = id.indexOf('/');
-	   if (firstSlash > -1) {
-	       var p = paths[id.substring(0,firstSlash)];
-	       if (p) id = p + id.substring(firstSlash+1); }
-	   // give url a custom prefix
-	   url = pathPrefix + id + ext; 
+         //Create url by path substitution 
+	 var firstSlash = id.indexOf('/');
+	 if (firstSlash > -1) {
+	   var p = paths[id.substring(0,firstSlash)];
+	   if (p) id = p + id.substring(firstSlash+1); }
+	 // give url a custom prefix
+	 url = pathPrefix + id + ext; 
        }
        else url = id + ext;
        
@@ -738,69 +706,69 @@
        var depId = resourceId + "#" + tag;
        
        if (!dependencies[depId]) { 
-	   //Find or if not existant yet, create resource data structure
-	   if (!resources[resourceId]) { resource = {
-	       id: resourceId,
-	       url: url,
-	       namespace: ns,
-	       isAbs: isAbs,
-	       loader: loader,
-	       status: 'new',
-	       blocks: blocks };
-				         resources[resourceId] = resource; }
-	   //this resource has already requested
-	   else { resource = resources[loader + "!" + url];
-		  resource.blocks = blocks; }
-	   dependencies[depId] = { resource: resource,
-				   id: depId,
-				   tag: tag,
-				   met: false,  
-				   namespace: ns + (tag ? '/' + tag : ''),
-				   dependencies: [],
-			           requirers: [] }; }
+	 //Find or if not existant yet, create resource data structure
+	 if (!resources[resourceId]) { resource = {
+					 id: resourceId,
+					 url: url,
+					 namespace: ns,
+					 isAbs: isAbs,
+					 loader: loader,
+					 status: 'new',
+					 blocks: blocks };
+				       resources[resourceId] = resource; }
+	 //this resource has already requested
+	 else { resource = resources[loader + "!" + url];
+		resource.blocks = blocks; }
+	 dependencies[depId] = { resource: resource,
+				 id: depId,
+				 tag: tag,
+				 met: false,  
+				 namespace: ns + (tag ? '/' + tag : ''),
+				 dependencies: [],
+			         requirers: [] }; }
        return dependencies[depId]; } 
      
-   //--------------------------------------events---------------------------------------------
-   //default callback for execute, it just passes on the call
-   function onExecute_native(f) { f.call(); }
+     //--------------------------------------events---------------------------------------------
+     //default callback for execute, it just passes on the call
+     function onExecute_native(f) { f.call(); }
      
-   //superfluous.., just some printing out of debug data
-   function onLoaded_native() {
+     //superfluous.., just some printing out of debug data
+     function onLoaded_native() {
        // describe("In bootstrap", function() {
        // 		 it("all modules are loaded", function() {
        // 		      expect(global.nmodules).toBe(5);
        // 		    });
-           // 	       });  
+       // 	       });  
        
        if (testing) execJasmine();
-       log(D,'definers', definers, 'dependencies', dependencies,'resources', resources); 
+       console.debug('definers', definers, 'dependencies', dependencies,'resources', resources); 
        log(I, "THE END THE END THE END THE END THE END THE END THE END THE END THE END THE END ");
-       }
+     }
      
-   function execJasmine() {
+     function execJasmine() {
        var jasmineEnv = jasmine.getEnv();
        jasmineEnv.updateInterval = 250;
 
        /**
-	  Create the `HTMLReporter`, which Jasmine calls to provide results of each spec and each suite. The Reporter is responsible for presenting results to the user.
-       */
+	Create the `HTMLReporter`, which Jasmine calls to provide results of each spec and each suite. The Reporter is responsible for presenting results to the user.
+	*/
        var htmlReporter = new jasmine.HtmlReporter();
        jasmineEnv.addReporter(htmlReporter);
 
        /**
-	  Delegate filtering of specs to the reporter. Allows for clicking on single suites or specs in the results to only run a subset of the suite.
-       */
+	Delegate filtering of specs to the reporter. Allows for clicking on single suites or specs in the results to only run a subset of the suite.
+	*/
        jasmineEnv.specFilter = function(spec) {
-	   return htmlReporter.specFilter(spec);
+	 return htmlReporter.specFilter(spec);
        };
 
        /**
-	  Run all of the tests when the page finishes loading - and make sure to run any previous `onload` handler
+	Run all of the tests when the page finishes loading - and make sure to run any previous `onload` handler
 
-	  ### Test Results
+	### Test Results
 
-	  Scroll down to see the results of all of these specs.
-       */
+	Scroll down to see the results of all of these specs.
+	*/
        // var currentWindowOnload = window.onload;
        // global.onload = function() {
        //   if (currentWindowOnload) {
@@ -811,12 +779,12 @@
        //   execJasmine();
        // };
        jasmineEnv.execute();
-   }
+     }
      
      
-   //---------------------loaders--------------------------- 
-   //not my code but useful. Might change this to proper AMD plugins.
-   var loaders = {
+     //---------------------loaders--------------------------- 
+     //not my code but useful. Might change this to proper AMD plugins.
+     var loaders = {
        
        /** MIT License (c) copyright B Cavalier & J Hann */
 
@@ -824,7 +792,7 @@
 	* curl text! loader loader
 	*
 	* Licensed under the MIT License at:
-        *		http://www.opensource.org/licenses/mit-license.php
+	* 		http://www.opensource.org/licenses/mit-license.php
 	*/
 
        /**
@@ -834,71 +802,71 @@
 
        data : (function () {
 
-	   var progIds = ['Msxml2.XMLHTTP', 'Microsoft.XMLHTTP', 'Msxml2.XMLHTTP.4.0'];
+		 var progIds = ['Msxml2.XMLHTTP', 'Microsoft.XMLHTTP', 'Msxml2.XMLHTTP.4.0'];
 
-	   function xhr () {
-	       if (typeof XMLHttpRequest !== "undefined") {
-		   // rewrite the getXhr method to always return the native implementation
-		   xhr = function () { return new XMLHttpRequest(); };
-	       }
-	       else {
-		   // keep trying progIds until we find the correct one, then rewrite the getXhr method
-		   // to always return that one.
-		   var noXhr = xhr = function () {
+		 function xhr () {
+		   if (typeof XMLHttpRequest !== "undefined") {
+		     // rewrite the getXhr method to always return the native implementation
+		     xhr = function () { return new XMLHttpRequest(); };
+		   }
+		   else {
+		     // keep trying progIds until we find the correct one, then rewrite the getXhr method
+		     // to always return that one.
+		     var noXhr = xhr = function () {
 		       throw new Error("getXhr(): XMLHttpRequest not available");
-		   };
-		   while (progIds.length > 0 && xhr === noXhr) (function (id) {
-		       try {
-			   new ActiveXObject(id);
-			   xhr = function () { return new ActiveXObject(id); };
-		       }
-		       catch (ex) {}
-		   }(progIds.shift()));
-	       }
-	       return xhr();
-	   }
+		     };
+		     while (progIds.length > 0 && xhr === noXhr) (function (id) {
+								    try {
+								      new ActiveXObject(id);
+								      xhr = function () { return new ActiveXObject(id); };
+								    }
+								    catch (ex) {}
+								  }(progIds.shift()));
+		   }
+		   return xhr();
+		 }
 
-	   function fetchText (url, callback, errback) {
-	       var x = xhr();
-	       x.open('GET', url, true);
-	       x.onreadystatechange = function (e) {
-		   if (x.readyState === 4) {
+		 function fetchText (url, callback, errback) {
+		   var x = xhr();
+		   x.open('GET', url, true);
+		   x.onreadystatechange = function (e) {
+		     if (x.readyState === 4) {
 		       if (x.status < 400) {
-			   callback(x.responseText);
+			 callback(x.responseText);
 		       }
 		       else {
-			   errback(new Error('fetchText() failed. status: ' + x.statusText));
+			 errback(new Error('fetchText() failed. status: ' + x.statusText));
 		       }
-		   }
-	       };
-	       x.send(null);
-	   }
+		     }
+		   };
+		   x.send(null);
+		 }
 
-	   function error (ex) {
-	       throw ex;
-	   }
+		 function error (ex) {
+		   throw ex;
+		 }
 
-	   return {
+		 return {
 
-	       //		'normalize': function (resourceId, toAbsId) {
-	       //			// remove options
-	       //			return resourceId ? toAbsId(resourceId.split("!")[0]) : resourceId;
-	       //		},
+		   //		'normalize': function (resourceId, toAbsId) {
+		   //			// remove options
+		   //			return resourceId ? toAbsId(resourceId.split("!")[0]) : resourceId;
+		   //		},
 
-	       load: function (resourceName, req, callback, config) {
-		   // remove suffixes (future)
-		   // hook up callbacks
-		   var cb = callback.resolve || callback,
-		   eb = callback.reject || error;
-		   // get the text
-		   fetchText(req['toUrl'](resourceName), cb, eb);
-	       },
+		   load: function (resourceName, req, callback, config) {
+		     // remove suffixes (future)
+		     // hook up callbacks
+		     var cb = callback.resolve || callback,
+		     eb = callback.reject || error;
+		     // get the text
+		     fetchText(req['toUrl'](resourceName), cb, eb);
+		   },
 
-	       'loader-builder': './builder/text'
+		   'loader-builder': './builder/text'
 
-	   };
+		 };
 
-       })(global)
+	       })(global)
        
        /** MIT License (c) copyright B Cavalier & J Hann */
 
@@ -910,97 +878,97 @@
 	*
 	*/
        ,css : (function () {
-	   /*
-	    * curl link! loader
-	    * This loader will load css files as <link> elements.  It does not wait for
-	    * css file to finish loading / evaluating before executing dependent modules.
-	    * This loader also does not handle IE's 31-stylesheet limit.
-	    * If you need any of the above behavior, use curl's css! loader instead.
-	    *
-	    * All this loader does is insert <link> elements in a non-blocking manner.
-	    *
-	    * usage:
-	    * 		// load myproj/comp.css and myproj/css2.css
-	    *      module(['css!myproj/comp,myproj/css2']);
-	    *
-	    * Tested in:
-	    *      Firefox 1.5, 2.0, 3.0, 3.5, 3.6, and 4.0b6
-	    *      Safari 3.0.4, 3.2.1, 5.0
-	    *      Chrome 7+
-	    *      Opera 9.52, 10.63, and Opera 11.00
-	    *      IE 6, 7, and 8
-	    *      Netscape 7.2 (WTF? SRSLY!)
-	    * Does not work in Safari 2.x :(
-	    */
+		 /*
+		  * curl link! loader
+		  * This loader will load css files as <link> elements.  It does not wait for
+		  * css file to finish loading / evaluating before executing dependent modules.
+		  * This loader also does not handle IE's 31-stylesheet limit.
+		  * If you need any of the above behavior, use curl's css! loader instead.
+		  *
+		  * All this loader does is insert <link> elements in a non-blocking manner.
+		  *
+		  * usage:
+		  * 		// load myproj/comp.css and myproj/css2.css
+		  *      module(['css!myproj/comp,myproj/css2']);
+		  *
+		  * Tested in:
+		  *      Firefox 1.5, 2.0, 3.0, 3.5, 3.6, and 4.0b6
+		  *      Safari 3.0.4, 3.2.1, 5.0
+		  *      Chrome 7+
+		  *      Opera 9.52, 10.63, and Opera 11.00
+		  *      IE 6, 7, and 8
+		  *      Netscape 7.2 (WTF? SRSLY!)
+		  * Does not work in Safari 2.x :(
+		  */
 
 
-	   var
-	   // compressibility shortcuts
-	   createElement = 'createElement',
-	   // doc will be undefined during a build
-	   doc = global.document,
-	   // regexp to find url protocol for IE7/8 fix (see fixProtocol)
-	   isProtocolRelativeRx = /^\/\//,
-	       // find the head element and set it to it's standard property if nec.
-	   head;
+		 var
+		 // compressibility shortcuts
+		 createElement = 'createElement',
+		 // doc will be undefined during a build
+		 doc = global.document,
+		 // regexp to find url protocol for IE7/8 fix (see fixProtocol)
+		 isProtocolRelativeRx = /^\/\//,
+		 // find the head element and set it to it's standard property if nec.
+		 head;
 
-	   if (doc) {
-	       head = doc.head || (doc.head = doc.getElementsByTagName('head')[0]);
-	   }
+		 if (doc) {
+		   head = doc.head || (doc.head = doc.getElementsByTagName('head')[0]);
+		 }
 
-	   function nameWithExt (name, defaultExt) {
-	       return name.lastIndexOf('.') <= name.lastIndexOf('/') ?
-		   name + '.' + defaultExt : name;
-	   }
+		 function nameWithExt (name, defaultExt) {
+		   return name.lastIndexOf('.') <= name.lastIndexOf('/') ?
+		     name + '.' + defaultExt : name;
+		 }
 
-	   function createLink (doc, href) {
-	       var link = doc[createElement]('link');
-	       link.rel = "stylesheet";
-	       link.type = "text/css";
-	       link.href = href;
-	       return link;
-	   }
+		 function createLink (doc, href) {
+		   var link = doc[createElement]('link');
+		   link.rel = "stylesheet";
+		   link.type = "text/css";
+		   link.href = href;
+		   return link;
+		 }
 
-	   function fixProtocol (url, protocol) {
-	       // IE 7 & 8 can't handle protocol-relative urls:
-	       // http://www.stevesouders.com/blog/2010/02/10/5a-missing-schema-double-download/
-	       return url.replace(isProtocolRelativeRx, protocol + '//');
-	   }
+		 function fixProtocol (url, protocol) {
+		   // IE 7 & 8 can't handle protocol-relative urls:
+		   // http://www.stevesouders.com/blog/2010/02/10/5a-missing-schema-double-download/
+		   return url.replace(isProtocolRelativeRx, protocol + '//');
+		 }
 
-	   return {
+		 return {
 
-	       //		'normalize': function (resourceId, toAbsId) {
-	       //			// remove options
-	       //			return resourceId ? toAbsId(resourceId.split("!")[0]) : resourceId;
-	       //		},
+		   //		'normalize': function (resourceId, toAbsId) {
+		   //			// remove options
+		   //			return resourceId ? toAbsId(resourceId.split("!")[0]) : resourceId;
+		   //		},
 
-	       'load': function (resourceId, require, callback, config) {
-		   var url, link, fix;
+		   'load': function (resourceId, require, callback, config) {
+		     var url, link, fix;
 
-		   url = require['toUrl'](nameWithExt(resourceId, 'css'));
-		   fix = 'fixSchemalessUrls' in config ? config['fixSchemalessUrls'] : doc.location.protocol;
-		   url = fix ? fixProtocol(url, fix) : url;
-		   link = createLink(doc, url);
+		     url = require['toUrl'](nameWithExt(resourceId, 'css'));
+		     fix = 'fixSchemalessUrls' in config ? config['fixSchemalessUrls'] : doc.location.protocol;
+		     url = fix ? fixProtocol(url, fix) : url;
+		     link = createLink(doc, url);
 		     
-		   head.appendChild(link);
-		   //link does not have a onload, so create a fake one.. Our code needs real async callbacks,
-		   //not a synchronous timeline. This function needs to return immediately and create an
-		   //fake event for the onload of css, loaded or not...
-		   setTimeout(function() { 
-		       // callback(link.sheet || link.styleSheet);
-		       callback(url);
-		   }, 0);
+		     head.appendChild(link);
+		     //link does not have a onload, so create a fake one.. Our code needs real async callbacks,
+		     //not a synchronous timeline. This function needs to return immediately and create an
+		     //fake event for the onload of css, loaded or not...
+		     setTimeout(function() { 
+				  // callback(link.sheet || link.styleSheet);
+				  callback(url);
+				}, 0);
 
-	       }
+		   }
 
-	   };
+		 };
 
-       })(global)
-   };  
+	       })(global)
+     };  
 
-   //executing code:
-   if (typeof bootstrap !== "undefined") init(bootstrap);
-   else init(default_config);
+     //executing code:
+     if (typeof bootstrap !== "undefined") init(bootstrap);
+     else init(default_config);
  })(this);
 
 // <!DOCTYPE html>

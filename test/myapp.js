@@ -5,6 +5,7 @@ define(
     // tag: 'foo',	    
     load: ['test.css'
 	   //,'http://code.jquery.com/jquery-1.8.1.min.js'
+           ,'loader'
 	  ],
     inject: ['a1/f1' 
 	     ,'myapp#foo' 
@@ -24,8 +25,8 @@ define(
 		      ,jsdata, jsdata2, ret_in_ns
 		     )  {
 		       console.log(this,'executing myapp callback');
-		       describe("In myapp", function() {
-      				  it("this is defined", function() {
+		       describe("In myapp, ", function() {
+      				  it("The factory is a function, 'this' should be defined, 'this' is the the object that is injected into other modules", function() {
       				       expect(this).toBeDefined();
       				     });
       				  it("exported values using return are in the namespace", function() {
